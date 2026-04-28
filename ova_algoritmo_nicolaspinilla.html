@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title> NICO-BOT | Reto: Ordena el Algoritmo | por Nicolás Pinilla</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --cyan:#00f5ff; --purple:#7c3aed; --dark:#080818;
+  --card:#0f0f28; --card2:#171730; --text:#dde0ff;
+  --muted:#7779aa; --green:#00ff88; --amber:#ffd700;
+  --red:#ff3d5a; --pink:#ff6eb4; --blue:#3b82f6;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden}
+body{font-family:'Nunito',sans-serif;background:var(--dark);color:var(--text);display:flex;flex-direction:column}
+
+/* CANVAS BG */
+#bgCanvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none}
+
+/* HUD */
+.hud{position:fixed;top:0;left:0;right:0;z-index:200;height:50px;
+  background:rgba(8,8,24,0.92);border-bottom:1px solid rgba(0,245,255,0.15);
+  display:flex;align-items:center;justify-content:space-between;padding:0 16px;
+  backdrop-filter:blur(10px)}
+.hud-brand{font-family:'Orbitron',monospace;font-size:12px;color:var(--cyan);letter-spacing:3px}
+.hud-stats{display:flex;gap:14px;align-items:center}
+.hud-stat{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:800}
+.pts-c{color:var(--amber)} .lvl-c{color:var(--cyan)} .ms-c{color:var(--pink)}
+.pbar-wrap{position:fixed;top:50px;left:0;right:0;height:3px;z-index:200;background:rgba(255,255,255,0.06)}
+.pbar{height:100%;background:linear-gradient(90deg,var(--purple),var(--cyan));width:0%;transition:width .6s ease}
+
+/* SCREENS */
+.screen{position:absolute;inset:0;top:53px;overflow-y:auto;overflow-x:hidden;
+  display:none;flex-direction:column;align-items:center;z-index:10;padding:20px 16px 40px}
+.screen.active{display:flex}
+
+/* ROBOT SVG */
+.robot-float{animation:float 3s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+@keyframes scaleIn{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}
+@keyframes pop{0%{transform:scale(1)}50%{transform:scale(1.15)}100%{transform:scale(1)}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+@keyframes glow{0%,100%{text-shadow:0 0 10px var(--cyan)}50%{text-shadow:0 0 30px var(--cyan),0 0 60px var(--cyan)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes confetti{0%{opacity:1;transform:translateY(0) rotate(0deg)}100%{opacity:0;transform:translateY(200px) rotate(720deg)}}
+
+.anim-up{animation:fadeUp .5s ease forwards}
+.anim-scale{animation:scaleIn .45s ease forwards}
+
+/* CARD */
+.card{background:var(--card);border:1px solid rgba(124,58,237,0.25);border-radius:20px;
+  padding:22px;width:100%;max-width:660px;margin:0 auto 14px;position:relative;z-index:10}
+.card-c{border-color:rgba(0,245,255,0.25)} .card-g{border-color:rgba(0,255,136,0.25)}
+.card-a{border-color:rgba(255,215,0,0.25)}
+
+/* TYPOGRAPHY */
+h1{font-family:'Orbitron',monospace;font-size:clamp(18px,4vw,26px);color:var(--cyan);text-align:center;line-height:1.25;margin-bottom:8px}
+h2{font-family:'Orbitron',monospace;font-size:clamp(14px,3vw,19px);color:#a78bfa;margin-bottom:12px}
+h3{font-size:15px;font-weight:800;color:var(--text);margin-bottom:8px}
+p{font-size:14px;line-height:1.65;color:var(--text);margin-bottom:6px}
+.muted{color:var(--muted);font-size:12px}
+
+/* BADGE */
+.badge{display:inline-block;padding:3px 11px;border-radius:50px;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase}
+.bp{background:rgba(124,58,237,.18);color:#a78bfa;border:1px solid rgba(124,58,237,.35)}
+.bc{background:rgba(0,245,255,.1);color:var(--cyan);border:1px solid rgba(0,245,255,.3)}
+.bg_{background:rgba(0,255,136,.1);color:var(--green);border:1px solid rgba(0,255,136,.3)}
+.ba{background:rgba(255,215,0,.1);color:var(--amber);border:1px solid rgba(255,215,0,.3)}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  padding:12px 28px;border-radius:50px;font-family:'Orbitron',monospace;
+  font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;border:none;
+  transition:all .2s;text-transform:uppercase}
+.btn-p{background:linear-gradient(135deg,#6d28d9,#4f46e5);color:#fff;box-shadow:0 0 18px rgba(109,40,217,.4)}
+.btn-p:hover{transform:scale(1.05);box-shadow:0 0 28px rgba(109,40,217,.7)}
+.btn-c{background:linear-gradient(135deg,#0e7490,#06b6d4);color:#001a1f}
+.btn-c:hover{transform:scale(1.05)}
+.btn-g{background:linear-gradient(135deg,#047857,#10b981);color:#001a0d;font-weight:900}
+.btn-g:hover{transform:scale(1.05)}
+.btn-o{background:transparent;border:1px solid rgba(0,245,255,.35);color:var(--cyan);font-size:10px;padding:8px 16px}
+.btn-o:hover{background:rgba(0,245,255,.08)}
+.btn:active{transform:scale(.97)}
+
+/* ROBOT BUBBLE */
+.bubble{background:rgba(0,245,255,.07);border:1px solid rgba(0,245,255,.25);
+  border-radius:14px;padding:12px 16px;font-size:13px;font-weight:600;color:var(--cyan);
+  max-width:500px;margin:10px auto;text-align:center;position:relative}
+
+/* DIVIDER */
+.divider{height:1px;background:rgba(124,58,237,.18);margin:14px 0}
+
+/* CONCEPT GRID */
+.cgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0}
+.cbox{background:var(--card2);border-radius:12px;padding:14px;border:1px solid rgba(124,58,237,.15)}
+.cbox h4{font-size:11px;color:var(--cyan);margin-bottom:6px;font-weight:800;text-transform:uppercase;letter-spacing:1px}
+.cbox p{font-size:12px;color:var(--muted);margin:0}
+
+/* STEPS DOTS */
+.dots{display:flex;gap:7px;justify-content:center;margin-bottom:14px}
+.dot{width:9px;height:9px;border-radius:50%;background:rgba(124,58,237,.3);transition:.3s}
+.dot.done{background:var(--green)}
+.dot.active{background:var(--cyan);transform:scale(1.4)}
+
+/* MISSION ITEM */
+.mission{background:linear-gradient(135deg,rgba(124,58,237,.12),rgba(0,245,255,.06));
+  border:1px solid rgba(124,58,237,.3);border-radius:14px;padding:13px 16px;
+  margin:7px 0;display:flex;align-items:center;gap:13px}
+.micon{font-size:26px;flex-shrink:0}
+.mtitle{font-weight:800;font-size:14px}
+.msub{font-size:11px;color:var(--muted);margin-top:2px}
+
+/* DRAG DROP */
+.dnd-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}
+.dzone{border:2px dashed rgba(124,58,237,.35);border-radius:12px;padding:10px;
+  min-height:50px;background:rgba(124,58,237,.04);transition:.2s}
+.dzone.over{border-color:var(--cyan);background:rgba(0,245,255,.07)}
+.ditem{background:var(--card2);border:1px solid rgba(124,58,237,.35);border-radius:9px;
+  padding:9px 12px;margin:5px 0;cursor:grab;font-size:13px;font-weight:700;
+  display:flex;align-items:center;gap:8px;user-select:none;transition:.15s}
+.ditem:hover{border-color:var(--cyan);transform:translateX(2px)}
+.ditem.dragging{opacity:.35}
+.dnum{width:22px;height:22px;border-radius:50%;background:rgba(124,58,237,.3);
+  display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;
+  color:#a78bfa;flex-shrink:0}
+
+/* CHOICES */
+.choices{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:10px 0}
+.cbtn{background:var(--card2);border:1px solid rgba(124,58,237,.28);border-radius:11px;
+  padding:12px;cursor:pointer;font-size:13px;font-weight:700;color:var(--text);
+  text-align:left;transition:.2s;font-family:'Nunito',sans-serif;line-height:1.4}
+.cbtn:hover{border-color:var(--cyan);background:rgba(0,245,255,.05)}
+.cbtn.ok{border-color:var(--green);background:rgba(0,255,136,.1);color:var(--green)}
+.cbtn.err{border-color:var(--red);background:rgba(255,61,90,.1);color:var(--red)}
+
+/* FEEDBACK */
+.fb{border-radius:11px;padding:11px 14px;font-size:13px;font-weight:700;margin:10px 0;display:none}
+.fb.show{display:block}
+.fb.ok{background:rgba(0,255,136,.09);border:1px solid rgba(0,255,136,.3);color:var(--green)}
+.fb.err{background:rgba(255,61,90,.09);border:1px solid rgba(255,61,90,.3);color:var(--red)}
+
+/* MEMORY */
+.mgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;max-width:380px;margin:0 auto}
+.mcard{aspect-ratio:1;border-radius:10px;cursor:pointer;display:flex;
+  align-items:center;justify-content:center;background:var(--card2);
+  border:1px solid rgba(124,58,237,.35);transition:.35s;position:relative;overflow:hidden}
+.mcard .mfront{position:absolute;opacity:0;transition:.3s;font-size:11px;text-align:center;
+  padding:4px;color:var(--cyan);font-weight:700;line-height:1.3}
+.mcard .mback{font-size:26px;transition:.3s}
+.mcard.flipped .mfront,.mcard.matched .mfront{opacity:1}
+.mcard.flipped .mback,.mcard.matched .mback{opacity:0}
+.mcard.flipped{background:rgba(0,245,255,.08);border-color:var(--cyan)}
+.mcard.matched{background:rgba(0,255,136,.12);border-color:var(--green)}
+
+/* HOTSPOT */
+.hs-wrap{position:relative;width:100%;max-width:520px;margin:0 auto}
+.hs-scene{background:var(--card2);border:1px solid rgba(124,58,237,.28);
+  border-radius:14px;width:100%;position:relative;overflow:hidden}
+.hs-pt{position:absolute;width:28px;height:28px;border-radius:50%;
+  background:rgba(0,245,255,.18);border:2px solid var(--cyan);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:12px;
+  font-weight:900;color:var(--cyan);transition:.2s;
+  animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(0,245,255,.4)}50%{box-shadow:0 0 0 8px rgba(0,245,255,0)}}
+.hs-pt:hover,.hs-pt.active{background:rgba(0,245,255,.38);transform:scale(1.2)}
+.hs-pt.discovered{background:rgba(0,255,136,.25);border-color:var(--green);color:var(--green);animation:none}
+.hs-info{background:var(--card2);border:1px solid rgba(0,245,255,.28);border-radius:10px;
+  padding:10px 13px;font-size:12px;margin-top:9px;display:none;color:var(--cyan);font-weight:700;line-height:1.5}
+.hs-info.show{display:block}
+
+/* STORY BOX */
+.story{background:rgba(124,58,237,.09);border-left:3px solid var(--purple);
+  border-radius:0 11px 11px 0;padding:12px 14px;margin-bottom:12px;
+  font-size:13px;font-style:italic;color:#c4b5fd;line-height:1.5}
+
+/* TROPHY */
+.trophy{font-size:72px;text-align:center;display:block;margin:8px 0;
+  animation:pop .5s ease}
+.score-big{font-family:'Orbitron',monospace;font-size:clamp(36px,8vw,56px);
+  color:var(--amber);text-align:center;font-weight:900;
+  animation:glow 2s ease infinite}
+
+/* CONFETTI PIECE */
+.conf{position:fixed;width:8px;height:8px;border-radius:2px;pointer-events:none;
+  animation:confetti 1.5s ease forwards;z-index:999}
+
+/* FOOTER CREDIT */
+.credit{position:fixed;bottom:0;left:0;right:0;z-index:300;
+  background:rgba(8,8,24,0.88);border-top:1px solid rgba(124,58,237,.15);
+  height:22px;display:flex;align-items:center;justify-content:center;
+  font-size:9px;color:var(--muted);font-family:'Orbitron',monospace;letter-spacing:2px}
+
+/* UTILS */
+.center{text-align:center}
+.row{display:flex;gap:9px;flex-wrap:wrap;align-items:center;justify-content:center}
+.mt{margin-top:14px}
+.mb{margin-bottom:12px}
+.gap{display:flex;flex-direction:column;gap:8px}
+
+/* ORDERED RESULT */
+.ostep{display:flex;align-items:center;gap:9px;background:rgba(0,255,136,.07);
+  border:1px solid rgba(0,255,136,.25);border-radius:9px;padding:9px 12px;
+  margin:4px 0;font-size:13px;font-weight:700}
+.onum{width:24px;height:24px;border-radius:50%;background:var(--green);color:#001a0d;
+  display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;flex-shrink:0}
+
+/* SOUND INDICATOR */
+.sound-btn{position:fixed;bottom:28px;right:12px;z-index:400;width:36px;height:36px;
+  border-radius:50%;background:rgba(0,245,255,.12);border:1px solid rgba(0,245,255,.3);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;
+  transition:.2s}
+.sound-btn:hover{background:rgba(0,245,255,.25)}
+</style>
+</head>
+<body>
+
+<canvas id="bgCanvas"></canvas>
+
+<div class="hud">
+  <div class="hud-brand">NICO&#8209;BOT</div>
+  <div class="hud-stats">
+    <div class="hud-stat pts-c">★ <span id="ptsD">0</span></div>
+    <div class="hud-stat lvl-c">⚡ Nv.<span id="lvlD">1</span></div>
+    <div class="hud-stat ms-c">🎯 <span id="msD">0</span>/5</div>
+  </div>
+</div>
+<div class="pbar-wrap"><div class="pbar" id="pbar"></div></div>
+
+<!-- ░░ SCREEN 0 — BIENVENIDA ░░ -->
+<div class="screen active" id="s0">
+  <div style="margin-top:10px;text-align:center" class="anim-scale">
+    <svg class="robot-float" width="110" height="110" viewBox="0 0 110 110" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="rg1" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#1e1e45"/>
+          <stop offset="100%" stop-color="#0f0f28"/>
+        </radialGradient>
+      </defs>
+      <rect x="25" y="32" width="60" height="52" rx="10" fill="url(#rg1)" stroke="#00f5ff" stroke-width="1.8"/>
+      <rect x="34" y="42" width="15" height="10" rx="3" fill="#00f5ff" opacity=".85"/>
+      <circle cx="41" cy="47" r="3" fill="#001a1f"/>
+      <rect x="61" y="42" width="15" height="10" rx="3" fill="#00f5ff" opacity=".85"/>
+      <circle cx="68" cy="47" r="3" fill="#001a1f"/>
+      <rect x="38" y="63" width="34" height="8" rx="4" fill="#7c3aed" opacity=".7"/>
+      <rect x="44" y="65" width="6" height="4" rx="2" fill="#a78bfa"/>
+      <rect x="52" y="65" width="6" height="4" rx="2" fill="#a78bfa"/>
+      <rect x="60" y="65" width="6" height="4" rx="2" fill="#a78bfa"/>
+      <rect x="33" y="27" width="44" height="8" rx="4" fill="#0f0f28" stroke="#7c3aed" stroke-width="1.3"/>
+      <circle cx="55" cy="23" r="6" fill="#00f5ff" opacity=".9"/>
+      <circle cx="55" cy="23" r="3" fill="#001a1f"/>
+      <rect x="14" y="38" width="11" height="30" rx="5.5" fill="#0f0f28" stroke="#7c3aed" stroke-width="1.3"/>
+      <rect x="85" y="38" width="11" height="30" rx="5.5" fill="#0f0f28" stroke="#7c3aed" stroke-width="1.3"/>
+      <rect x="33" y="84" width="16" height="18" rx="5" fill="#0f0f28" stroke="#7c3aed" stroke-width="1.3"/>
+      <rect x="61" y="84" width="16" height="18" rx="5" fill="#0f0f28" stroke="#7c3aed" stroke-width="1.3"/>
+      <circle cx="14" cy="53" r="4" fill="#00f5ff" opacity=".35"/>
+      <circle cx="96" cy="53" r="4" fill="#00f5ff" opacity=".35"/>
+    </svg>
+  </div>
+
+  <div class="card card-c anim-up" style="max-width:560px;text-align:center;margin-top:4px">
+    <div class="mb row"><span class="badge bp">Módulo 1</span> <span class="badge bc">Misión Especial</span></div>
+    <h1>RETO:<br>Ordena el Algoritmo</h1>
+    <p class="muted" style="margin:6px 0 10px">Programación · Grado 8° · Nicolás Pinilla</p>
+    <div class="divider"></div>
+    <div class="bubble">
+      ¡Hola, programador! Soy <strong>NICO-BOT</strong> 🤖<br>
+      Hoy <strong>ayudarás a un robot a pensar como programador</strong>.<br>¿Aceptas la misión?
+    </div>
+    <div style="margin:12px 0">
+      <div class="mission"><div class="micon">🎯</div><div><div class="mtitle">Tu misión de hoy</div><div class="msub">5 retos épicos · gana insignias · demuestra que piensas en código</div></div></div>
+      <div class="mission"><div class="micon">⭐</div><div><div class="mtitle">Recompensas</div><div class="msub">Hasta 500 pts · 5 insignias · Título "Maestro del Algoritmo"</div></div></div>
+      <div class="mission"><div class="micon">🏆</div><div><div class="mtitle">Creado por</div><div class="msub">Nicolás Pinilla · Diseñador Instruccional & Gamificación</div></div></div>
+    </div>
+    <button class="btn btn-p" onclick="goTo(1)" style="margin-top:6px">🚀 ¡ACEPTAR MISIÓN!</button>
+    <p class="muted mt">♪ Activa sonido · H5P-ready para Moodle</p>
+  </div>
+</div>
+
+<!-- ░░ SCREEN 1 — INTRODUCCIÓN ░░ -->
+<div class="screen" id="s1">
+  <div class="card card-c anim-up" style="max-width:640px">
+    <div class="dots" id="idots">
+      <div class="dot active" id="id0"></div>
+      <div class="dot" id="id1"></div>
+      <div class="dot" id="id2"></div>
+    </div>
+
+    <div id="is0">
+      <div class="center mb"><span style="font-size:46px">🤔</span><h2 style="margin-top:8px">¿Qué es un Algoritmo?</h2></div>
+      <div class="bubble">Imagina que quieres enseñarme a preparar un sandwich. ¡Necesitas ser MUY exacto con cada paso!</div>
+      <div class="cgrid mt">
+        <div class="cbox"><h4>📋 Definición</h4><p>Un <strong style="color:var(--cyan)">algoritmo</strong> es una secuencia de pasos ordenados, precisos y finitos para resolver un problema.</p></div>
+        <div class="cbox"><h4>✅ Características</h4><p>• Tiene inicio y fin<br>• Pasos en orden exacto<br>• Preciso y sin ambigüedad<br>• Produce un resultado</p></div>
+      </div>
+      <div class="cbox mt" style="background:rgba(255,215,0,.05);border-color:rgba(255,215,0,.25)">
+        <h4 style="color:var(--amber)">💡 Ejemplo de la vida real</h4>
+        <p style="color:var(--text)">Lavarte los dientes es un algoritmo:<br>
+        1️⃣ Tomar cepillo → 2️⃣ Agregar pasta → 3️⃣ Cepillar 2 min → 4️⃣ Enjuagar → 5️⃣ Guardar</p>
+      </div>
+      <div class="center mt"><button class="btn btn-c" onclick="iSlide(1)">Siguiente →</button></div>
+    </div>
+
+    <div id="is1" style="display:none">
+      <div class="center mb"><span style="font-size:46px">🔢</span><h2 style="margin-top:8px">¿Qué es una Secuencia Lógica?</h2></div>
+      <div class="bubble">¿Y si mezclo los pasos? ¿Qué pasa si me enjuago ANTES de cepillarme? 😵 ¡El resultado es incorrecto!</div>
+      <div class="cgrid mt">
+        <div class="cbox"><h4>📐 Secuencia</h4><p>El <strong style="color:var(--cyan)">orden correcto</strong> de los pasos. Alterar el orden puede romper completamente el algoritmo.</p></div>
+        <div class="cbox"><h4>⚠️ Sin orden correcto</h4><p>Si los pasos están desordenados, el resultado es <strong style="color:var(--red)">incorrecto, absurdo o imposible</strong>.</p></div>
+      </div>
+      <div style="background:rgba(124,58,237,.1);border-radius:12px;padding:13px;margin-top:12px">
+        <p style="font-size:12px;color:#c4b5fd;font-weight:700;margin-bottom:8px">🎮 Los programadores usan algoritmos en:</p>
+        <div class="row"><span class="badge bp">Videojuegos</span><span class="badge bc">Apps de música</span><span class="badge bg_">Redes sociales</span><span class="badge ba">Inteligencia Artificial</span></div>
+      </div>
+      <div class="row mt">
+        <button class="btn btn-o" onclick="iSlide(0)">← Anterior</button>
+        <button class="btn btn-c" onclick="iSlide(2)">Siguiente →</button>
+      </div>
+    </div>
+
+    <div id="is2" style="display:none">
+      <div class="center mb"><span style="font-size:46px">🏆</span><h2 style="margin-top:8px">¡Listo para los Retos!</h2></div>
+      <div class="bubble">¡Excelente! Ya tienes la teoría. Ahora practica con misiones reales. ¡Yo aprendo de ti!</div>
+      <div class="gap mt">
+        <div class="mission"><div class="micon">🖥️</div><div><div class="mtitle">Misión 1 — Drag & Drop</div><div class="msub">Ordena los pasos para encender un computador</div></div></div>
+        <div class="mission"><div class="micon">🍳</div><div><div class="mtitle">Misión 2 — Branching Scenario</div><div class="msub">Toma decisiones para completar la receta</div></div></div>
+        <div class="mission"><div class="micon">🤖</div><div><div class="mtitle">Misión 3 — Hotspots</div><div class="msub">Descubre los pasos del robot en el salón</div></div></div>
+        <div class="mission"><div class="micon">🧩</div><div><div class="mtitle">Misión 4 — Memory Game</div><div class="msub">Encuentra los pares de conceptos</div></div></div>
+        <div class="mission"><div class="micon">🧠</div><div><div class="mtitle">Misión 5 — Evaluación Final</div><div class="msub">Demuestra todo lo que aprendiste</div></div></div>
+      </div>
+      <div class="center mt"><button class="btn btn-p" onclick="goTo(2)">⚡ ¡COMENZAR MISIONES!</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ░░ SCREEN 2 — MISIÓN 1: DRAG & DROP ░░ -->
+<div class="screen" id="s2">
+  <div class="card anim-up" style="max-width:660px">
+    <div class="row mb"><span class="badge bp">Misión 1 de 5</span><span class="badge ba">+80 pts</span><span class="badge bc">Drag & Drop</span></div>
+    <h2>🖥️ ¡Enciende el Computador!</h2>
+    <div class="bubble">Arrastra (o toca) los pasos al panel derecho en el orden correcto. ¡La secuencia importa!</div>
+    <div class="dnd-grid">
+      <div>
+        <p class="muted mb" style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px">Pasos disponibles</p>
+        <div id="dnd-src" class="dzone"></div>
+      </div>
+      <div>
+        <p class="muted mb" style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px">Tu secuencia</p>
+        <div id="dnd-tgt" class="dzone" style="min-height:260px"></div>
+      </div>
+    </div>
+    <div class="fb" id="fb1"></div>
+    <div class="row mt">
+      <button class="btn btn-o" onclick="initDnd()">↩ Reiniciar</button>
+      <button class="btn btn-g" onclick="checkDnd()">✓ Verificar Orden</button>
+    </div>
+  </div>
+</div>
+
+<!-- ░░ SCREEN 3 — MISIÓN 2: BRANCHING ░░ -->
+<div class="screen" id="s3">
+  <div class="card anim-up" style="max-width:660px">
+    <div class="row mb"><span class="badge bp">Misión 2 de 5</span><span class="badge ba">+100 pts</span><span class="badge bc">Branching Scenario</span></div>
+    <h2>🍳 La Receta del Desayuno</h2>
+    <div id="sc-wrap"></div>
+  </div>
+</div>
+
+<!-- ░░ SCREEN 4 — MISIÓN 3: HOTSPOTS ░░ -->
+<div class="screen" id="s4">
+  <div class="card anim-up" style="max-width:660px">
+    <div class="row mb"><span class="badge bp">Misión 3 de 5</span><span class="badge ba">+80 pts</span><span class="badge bc">Hotspots</span></div>
+    <h2>🤖 ¡Guía al Robot por el Salón!</h2>
+    <div class="bubble">Toca cada punto brillante del mapa para descubrir qué acción debe hacer el robot. ¡Encuentra los 4 pasos!</div>
+    <div class="hs-wrap mt">
+      <div class="hs-scene">
+        <svg width="100%" viewBox="0 0 520 210" xmlns="http://www.w3.org/2000/svg">
+          <rect width="520" height="210" fill="#171730"/>
+          <rect x="12" y="12" width="496" height="186" fill="none" stroke="#7c3aed" stroke-width="1.5" stroke-dasharray="6,3" rx="8"/>
+          <rect x="30" y="35" width="65" height="38" rx="5" fill="#1a1a40" stroke="#7c3aed" stroke-width="1"/>
+          <rect x="115" y="35" width="65" height="38" rx="5" fill="#1a1a40" stroke="#7c3aed" stroke-width="1"/>
+          <rect x="30" y="100" width="65" height="38" rx="5" fill="#1a1a40" stroke="#7c3aed" stroke-width="1"/>
+          <rect x="115" y="100" width="65" height="38" rx="5" fill="#1a1a40" stroke="#7c3aed" stroke-width="1"/>
+          <text x="62" y="57" font-size="8" fill="#7779aa" text-anchor="middle" font-family="Nunito,sans-serif">PC 1</text>
+          <text x="147" y="57" font-size="8" fill="#7779aa" text-anchor="middle" font-family="Nunito,sans-serif">PC 2</text>
+          <text x="62" y="122" font-size="8" fill="#7779aa" text-anchor="middle" font-family="Nunito,sans-serif">PC 3</text>
+          <text x="147" y="122" font-size="8" fill="#7779aa" text-anchor="middle" font-family="Nunito,sans-serif">PC 4</text>
+          <rect x="310" y="22" width="165" height="72" rx="6" fill="#0e7490" opacity=".2" stroke="#00f5ff" stroke-width="1.3"/>
+          <text x="392" y="61" font-size="10" fill="#00f5ff" text-anchor="middle" font-family="Nunito,sans-serif">Pizarrón</text>
+          <rect x="210" y="162" width="55" height="36" rx="4" fill="#1a1a40" stroke="#ffd700" stroke-width="1.3"/>
+          <text x="237" y="184" font-size="9" fill="#ffd700" text-anchor="middle" font-family="Nunito,sans-serif">Puerta</text>
+          <text x="280" y="115" font-size="22" text-anchor="middle">🤖</text>
+          <text x="280" y="130" font-size="7" fill="#7779aa" text-anchor="middle" font-family="Nunito,sans-serif">NICO-BOT</text>
+        </svg>
+        <div class="hs-pt" id="hp0" style="left:10%;top:28%" onclick="showHs(0)">1</div>
+        <div class="hs-pt" id="hp1" style="left:28%;top:28%" onclick="showHs(1)">2</div>
+        <div class="hs-pt" id="hp2" style="left:68%;top:18%" onclick="showHs(2)">3</div>
+        <div class="hs-pt" id="hp3" style="left:44%;top:76%" onclick="showHs(3)">4</div>
+      </div>
+      <div class="hs-info" id="hs-info"></div>
+    </div>
+    <div class="mt muted" style="font-size:12px">Descubiertos: <strong id="hsc" style="color:var(--text)">0</strong>/4</div>
+    <div class="fb" id="fb3"></div>
+    <div class="center mt"><button class="btn btn-g" id="hsbtn" style="display:none" onclick="doneHs()">✓ ¡Misión Completada!</button></div>
+  </div>
+</div>
+
+<!-- ░░ SCREEN 5 — MISIÓN 4: MEMORY ░░ -->
+<div class="screen" id="s5">
+  <div class="card anim-up" style="max-width:660px">
+    <div class="row mb"><span class="badge bp">Misión 4 de 5</span><span class="badge ba">+120 pts</span><span class="badge bc">Memory Game</span></div>
+    <h2>🧩 El Código Secreto — Memoria</h2>
+    <div class="bubble">Encuentra los 6 pares: concepto + definición. ¡Toca las tarjetas!</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin:9px 0">
+      <span class="muted">Intentos: <strong id="mtr" style="color:var(--text)">0</strong></span>
+      <span class="muted">Pares: <strong id="mpr" style="color:var(--green)">0</strong>/6</span>
+    </div>
+    <div class="mgrid" id="mgrid"></div>
+    <div class="fb" id="fb5"></div>
+  </div>
+</div>
+
+<!-- ░░ SCREEN 6 — MISIÓN 5: QUIZ FINAL ░░ -->
+<div class="screen" id="s6">
+  <div class="card anim-up" style="max-width:660px">
+    <div class="row mb"><span class="badge bp">Misión Final</span><span class="badge ba">+120 pts</span><span class="badge bc">Evaluación</span></div>
+    <h2>🧠 Evaluación Final</h2>
+    <div class="bubble">¡Última prueba! Demuestra todo lo que aprendiste. ¡Tú puedes, programador!</div>
+    <div id="qwrap" class="mt"></div>
+  </div>
+</div>
+
+<!-- ░░ SCREEN 7 — PANTALLA FINAL ░░ -->
+<div class="screen" id="s7">
+  <div class="card card-a anim-up" style="max-width:560px;text-align:center">
+    <span class="trophy" id="troph">🏆</span>
+    <h1 id="ftitle">¡MISIÓN COMPLETADA!</h1>
+    <div class="divider"></div>
+    <p class="muted">Tu puntaje final</p>
+    <div class="score-big" id="fscore">0</div>
+    <p class="muted">/500 puntos posibles</p>
+    <div class="divider"></div>
+    <div id="fbadges" class="row" style="justify-content:center;margin:12px 0;flex-wrap:wrap"></div>
+    <div class="bubble" id="fmsg" style="margin:12px auto"></div>
+    <div style="margin:14px 0;background:var(--card2);border-radius:12px;padding:13px;text-align:left">
+      <p class="muted" style="font-weight:800;margin-bottom:9px;font-size:11px;text-transform:uppercase;letter-spacing:1px">📊 Resumen de Misiones</p>
+      <div id="sumlist"></div>
+    </div>
+    <div class="row mt">
+      <button class="btn btn-o" onclick="location.reload()">↩ Jugar de nuevo</button>
+      <button class="btn btn-p" onclick="submitScore()">📤 Enviar a Moodle</button>
+    </div>
+    <p class="muted mt" style="font-size:10px">Creado por <strong style="color:var(--amber)">Nicolás Pinilla</strong> · Diseñador Instruccional · H5P/Moodle Ready</p>
+  </div>
+</div>
+
+<div class="credit">NICO-BOT OVA · Módulo 1: Introducción a la Programación · Creado por Nicolás Pinilla</div>
+<div class="sound-btn" id="soundBtn" onclick="toggleSound()" title="Sonido">🔊</div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────
+var G={pts:0,lvl:1,ms:0,mpts:[0,0,0,0,0],cur:0,soundOn:true};
+var screens=['s0','s1','s2','s3','s4','s5','s6','s7'];
+var pcts=[0,10,24,40,56,70,85,100];
+
+// ─── AUDIO (Web Audio API) ────────────────────────────
+var ctx;
+function ensureCtx(){if(!ctx)ctx=new(window.AudioContext||window.webkitAudioContext)();}
+function beep(freq,dur,type,vol){
+  if(!G.soundOn)return;
+  try{ensureCtx();
+    var o=ctx.createOscillator(),g=ctx.createGain();
+    o.connect(g);g.connect(ctx.destination);
+    o.type=type||'sine';o.frequency.setValueAtTime(freq,ctx.currentTime);
+    g.gain.setValueAtTime(vol||0.15,ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);
+    o.start();o.stop(ctx.currentTime+dur);
+  }catch(e){}
+}
+function sfxOk(){beep(523,.12,'square',.08);setTimeout(()=>beep(659,.12,'square',.08),100);setTimeout(()=>beep(784,.2,'square',.1),200);}
+function sfxErr(){beep(220,.15,'sawtooth',.1);setTimeout(()=>beep(180,.25,'sawtooth',.08),150);}
+function sfxWin(){[523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,.15,'square',.12),i*100));}
+function sfxClick(){beep(440,.05,'sine',.05);}
+function toggleSound(){G.soundOn=!G.soundOn;document.getElementById('soundBtn').textContent=G.soundOn?'🔊':'🔇';}
+
+// ─── BG CANVAS PARTICLES ──────────────────────────────
+(function(){
+  var c=document.getElementById('bgCanvas');
+  var cx=c.getContext('2d');
+  var pts=[];
+  function resize(){c.width=window.innerWidth;c.height=window.innerHeight;}
+  resize();window.addEventListener('resize',resize);
+  for(var i=0;i<60;i++)pts.push({x:Math.random()*c.width,y:Math.random()*c.height,r:.5+Math.random()*1.2,vx:(Math.random()-.5)*.2,vy:(Math.random()-.5)*.2,a:Math.random()});
+  function draw(){
+    cx.clearRect(0,0,c.width,c.height);
+    pts.forEach(function(p){
+      p.x+=p.vx;p.y+=p.vy;p.a+=.01;
+      if(p.x<0||p.x>c.width)p.vx*=-1;
+      if(p.y<0||p.y>c.height)p.vy*=-1;
+      cx.beginPath();cx.arc(p.x,p.y,p.r,0,6.28);
+      cx.fillStyle='rgba(0,245,255,'+(0.2+Math.sin(p.a)*0.15)+')';cx.fill();
+    });
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+// ─── CONFETTI ─────────────────────────────────────────
+function spawnConfetti(){
+  var cols=['#00f5ff','#ffd700','#ff6eb4','#00ff88','#a78bfa'];
+  for(var i=0;i<35;i++){
+    var d=document.createElement('div');
+    d.className='conf';
+    d.style.left=Math.random()*100+'vw';
+    d.style.top='-10px';
+    d.style.background=cols[i%cols.length];
+    d.style.animationDelay=(Math.random()*0.8)+'s';
+    d.style.animationDuration=(1.2+Math.random()*.8)+'s';
+    d.style.transform='rotate('+(Math.random()*360)+'deg)';
+    document.body.appendChild(d);
+    setTimeout(function(el){el.remove();},2200,d);
+  }
+}
+
+// ─── NAVIGATION ──────────────────────────────────────
+function goTo(n){
+  sfxClick();
+  document.getElementById(screens[G.cur]).classList.remove('active');
+  G.cur=n;
+  document.getElementById(screens[n]).classList.add('active');
+  document.getElementById('pbar').style.width=pcts[n]+'%';
+  updHud();
+  if(n===2)initDnd();
+  if(n===3)initSc();
+  if(n===5)initMem();
+  if(n===6)initQuiz();
+  if(n===7)showFinal();
+  document.getElementById(screens[n]).scrollTop=0;
+}
+function updHud(){
+  document.getElementById('ptsD').textContent=G.pts;
+  document.getElementById('lvlD').textContent=G.lvl;
+  document.getElementById('msD').textContent=G.ms;
+}
+function addPts(p,mi){
+  G.pts+=p;G.mpts[mi]=p;G.ms++;
+  if(G.pts>=200)G.lvl=2;if(G.pts>=360)G.lvl=3;
+  updHud();
+}
+function showFb(id,ok,msg){
+  var el=document.getElementById(id);
+  el.className='fb show '+(ok?'ok':'err');
+  el.textContent=(ok?'✅ ':'❌ ')+msg;
+  if(ok)sfxOk();else sfxErr();
+}
+
+// ─── INTRO SLIDES ─────────────────────────────────────
+function iSlide(n){
+  sfxClick();
+  for(var i=0;i<3;i++){
+    document.getElementById('is'+i).style.display='none';
+    var d=document.getElementById('id'+i);
+    d.className='dot'+(i<n?' done':'');
+  }
+  document.getElementById('is'+n).style.display='block';
+  document.getElementById('id'+n).className='dot active';
+}
+
+// ─── MISSION 1: DRAG & DROP ──────────────────────────
+var dndData=[
+  {id:'d1',text:'🔌 Conectar el cable de corriente',ord:1},
+  {id:'d2',text:'⚡ Presionar botón de encendido',ord:2},
+  {id:'d3',text:'💡 Verificar que el monitor encienda',ord:3},
+  {id:'d4',text:'⏳ Esperar que cargue el sistema operativo',ord:4},
+  {id:'d5',text:'🖱️ Mover el mouse para activar pantalla',ord:5},
+  {id:'d6',text:'🔐 Ingresar contraseña o PIN',ord:6}
+];
+var dragEl=null;
+
+function initDnd(){
+  var shuf=dndData.slice().sort(()=>Math.random()-.5);
+  var src=document.getElementById('dnd-src');
+  var tgt=document.getElementById('dnd-tgt');
+  src.innerHTML='';tgt.innerHTML='';
+  document.getElementById('fb1').className='fb';
+  shuf.forEach(function(it){src.appendChild(makeDItem(it));});
+  [src,tgt].forEach(function(z){
+    z.addEventListener('dragover',function(e){e.preventDefault();z.classList.add('over');});
+    z.addEventListener('dragleave',function(){z.classList.remove('over');});
+    z.addEventListener('drop',function(e){
+      e.preventDefault();z.classList.remove('over');
+      if(dragEl){var cl=dragEl.cloneNode(true);addDE(cl);z.appendChild(cl);dragEl.remove();dragEl=null;}
+    });
+  });
+}
+function makeDItem(it){
+  var d=document.createElement('div');
+  d.className='ditem';d.draggable=true;d.dataset.ord=it.ord;
+  d.innerHTML='<span class="dnum">?</span><span>'+it.text+'</span>';
+  addDE(d);return d;
+}
+function addDE(el){
+  el.addEventListener('dragstart',function(){dragEl=el;el.classList.add('dragging');});
+  el.addEventListener('dragend',function(){el.classList.remove('dragging');});
+  el.addEventListener('click',function(){
+    sfxClick();
+    var src=document.getElementById('dnd-src');
+    var tgt=document.getElementById('dnd-tgt');
+    if(el.parentNode===src)tgt.appendChild(el);else src.appendChild(el);
+  });
+  // touch
+  el.addEventListener('touchstart',function(e){dragEl=el;el.classList.add('dragging');},{passive:true});
+}
+function checkDnd(){
+  var tgt=document.getElementById('dnd-tgt');
+  var items=tgt.querySelectorAll('.ditem');
+  if(items.length<6){showFb('fb1',false,'Mueve todos los 6 pasos a tu secuencia primero.');return;}
+  var ords=Array.from(items).map(el=>+el.dataset.ord);
+  var ok=true;for(var i=1;i<ords.length;i++)if(ords[i]<ords[i-1]){ok=false;break;}
+  items.forEach(function(el,i){el.querySelector('.dnum').textContent=i+1;});
+  if(ok){
+    showFb('fb1',true,'¡Perfecto! Secuencia correcta. NICO-BOT puede encender computadores. +80 pts');
+    addPts(80,0);
+    setTimeout(()=>{goTo(3);},2000);
+  }else{
+    showFb('fb1',false,'Hmm... el orden no es correcto. Revisa la lógica e inténtalo de nuevo.');
+    document.getElementById('dnd-tgt').style.animation='shake .4s ease';
+    setTimeout(()=>document.getElementById('dnd-tgt').style.animation='',500);
+  }
+}
+
+// ─── MISSION 2: BRANCHING SCENARIO ───────────────────
+var scData=[
+  {st:'Quieres preparar huevos revueltos. Ya tienes ingredientes listos. ¿Cuál es el PRIMER paso del algoritmo?',
+   ch:['🍽️ Servir en el plato','🔥 Encender la estufa','🧂 Echarle sal','🥚 Batir los huevos en un recipiente'],
+   ans:3,fb:['¡Aún no cocinaste nada! Ese es el último paso.','Sin mezcla lista, ¿qué cocinarías?','La sal va después de batir.','¡Correcto! Primero preparamos la mezcla.']},
+  {st:'Ya tienes los huevos batidos. El recipiente está listo. ¿Qué sigue en el algoritmo?',
+   ch:['🛑 Apagar la estufa','🔥 Encender estufa y calentar sartén','🍽️ Comer los huevos','🥄 Agregar ingredientes sin calentar'],
+   ans:1,fb:['¡Ni siquiera la encendiste!','¡Exacto! Necesitamos calor para cocinar.','Aún no están listos...','Sin calor los huevos quedan crudos.']},
+  {st:'El sartén está caliente. ¿Cuál es el siguiente paso lógico del algoritmo?',
+   ch:['🥚 Echar la mezcla al sartén','📺 Ver televisión primero','🚿 Lavar el sartén ahora','⏰ Esperar sin hacer nada'],
+   ans:0,fb:['¡Perfecto! La mezcla va al sartén caliente.','El algoritmo no se pausa sin razón.','¡El sartén aún está caliente y limpio!','Los algoritmos ejecutan pasos, no esperan.']},
+  {st:'Los huevos están casi listos. ¿Cuándo los retiras del fuego?',
+   ch:['Cuando el tiempo te lo indique (entrada)','Cuando están todavía líquidos','Cuando están completamente secos','Cuando el aceite se acabe'],
+   ans:0,fb:['¡Exacto! Una condición (entrada) determina cuándo parar.','¡Estarían crudos!','¡Estarían quemados!','No es la condición correcta.']},
+];
+var scIdx=0,scPts=0;
+
+function initSc(){scIdx=0;scPts=0;renderSc();}
+function renderSc(){
+  if(scIdx>=scData.length){
+    var p=Math.min(100,scPts);addPts(p,1);
+    document.getElementById('sc-wrap').innerHTML=
+      '<div class="center"><span style="font-size:50px">🎉</span>'+
+      '<h3 style="color:var(--green);margin:10px 0">¡Receta completada!</h3>'+
+      '<p>Ganaste <strong style="color:var(--amber)">'+p+' puntos</strong></p>'+
+      '<button class="btn btn-p mt" onclick="goTo(4)">Siguiente Misión →</button></div>';
+    sfxWin();return;
+  }
+  var s=scData[scIdx];
+  var dots='<div class="dots">';
+  for(var i=0;i<scData.length;i++)dots+='<div class="dot'+(i<scIdx?' done':'')+(i===scIdx?' active':'')+'"></div>';
+  dots+='</div>';
+  var html=dots+'<div class="story">'+s.st+'</div><div class="choices">';
+  s.ch.forEach(function(c,i){html+='<button class="cbtn" onclick="pickSc('+i+')">'+c+'</button>';});
+  html+='</div><div class="fb" id="fbsc"></div>';
+  document.getElementById('sc-wrap').innerHTML=html;
+}
+function pickSc(i){
+  var s=scData[scIdx];
+  var btns=document.querySelectorAll('.cbtn');
+  btns.forEach(b=>b.style.pointerEvents='none');
+  btns[i].className='cbtn '+(i===s.ans?'ok':'err');
+  btns[s.ans].className='cbtn ok';
+  var ok=i===s.ans;if(ok)scPts+=25;
+  var fb=document.getElementById('fbsc');
+  fb.className='fb show '+(ok?'ok':'err');
+  fb.textContent=(ok?'✅ ':'❌ ')+s.fb[i];
+  if(ok)sfxOk();else sfxErr();
+  setTimeout(()=>{scIdx++;renderSc();},1800);
+}
+
+// ─── MISSION 3: HOTSPOTS ─────────────────────────────
+var hsData=[
+  {t:'PC 1 — Inicio del Algoritmo',info:'✅ Paso 1: Encender el computador y abrir el programa de organización. Este es el INICIO del algoritmo.'},
+  {t:'PC 2 — Proceso de Datos',info:'⚙️ Paso 2: El robot carga y lee la lista de tareas del salón. Esta es la fase de PROCESO.'},
+  {t:'Pizarrón — Condición (IF)',info:'❓ Paso 3: ¿Está el pizarrón limpio? → SI → continuar. NO → borrar primero. ¡Esto es una CONDICIÓN!'},
+  {t:'Puerta — Fin del Algoritmo',info:'🏁 Paso 4: El robot sale. El algoritmo termina. El salón está organizado. ¡Este es el FIN!'}
+];
+var hsFound=[];
+function showHs(i){
+  sfxClick();
+  document.querySelectorAll('.hs-pt').forEach(p=>p.classList.remove('active'));
+  document.getElementById('hp'+i).classList.add('active');
+  var inf=document.getElementById('hs-info');
+  inf.className='hs-info show';
+  inf.innerHTML='<strong>'+hsData[i].t+'</strong><br>'+hsData[i].info;
+  if(!hsFound.includes(i)){
+    hsFound.push(i);
+    document.getElementById('hsc').textContent=hsFound.length;
+    document.getElementById('hp'+i).classList.add('discovered');
+    if(hsFound.length===4){document.getElementById('hsbtn').style.display='inline-flex';sfxOk();}
+  }
+}
+function doneHs(){
+  showFb('fb3',true,'¡Excelente! Descubriste los 4 pasos del algoritmo del robot. +80 pts');
+  addPts(80,2);
+  setTimeout(()=>goTo(5),2000);
+}
+
+// ─── MISSION 4: MEMORY GAME ──────────────────────────
+var memPairs=[
+  {id:'a',face:'🔢',back:'Algoritmo'},
+  {id:'a2',face:'Pasos ordenados\npara resolver\nun problema',back:'Algoritmo'},
+  {id:'b',face:'📋',back:'Secuencia'},
+  {id:'b2',face:'Orden correcto\nde los pasos',back:'Secuencia'},
+  {id:'c',face:'❓',back:'Condición'},
+  {id:'c2',face:'Si X → hacer Y\nSino → hacer Z',back:'Condición'},
+  {id:'d',face:'🔄',back:'Bucle'},
+  {id:'d2',face:'Repetir pasos\nhasta que se\ncumpla algo',back:'Bucle'},
+  {id:'e',face:'⌨️',back:'Entrada'},
+  {id:'e2',face:'Datos que\nrecibe\nel programa',back:'Entrada'},
+  {id:'f',face:'🖥️',back:'Salida'},
+  {id:'f2',face:'Resultado que\nmuestra\nel programa',back:'Salida'},
+];
+var mFlip=[],mMatch=[],mTries=0,mBlock=false;
+
+function initMem(){
+  mFlip=[];mMatch=[];mTries=0;mBlock=false;
+  document.getElementById('mtr').textContent='0';
+  document.getElementById('mpr').textContent='0';
+  document.getElementById('fb5').className='fb';
+  var shuf=memPairs.slice().sort(()=>Math.random()-.5);
+  var g=document.getElementById('mgrid');g.innerHTML='';
+  shuf.forEach(function(c,i){
+    var d=document.createElement('div');
+    d.className='mcard';d.dataset.back=c.back;d.dataset.idx=i;
+    d.innerHTML='<span class="mfront" style="white-space:pre-line">'+c.face+'</span><span class="mback">🔒</span>';
+    d.addEventListener('click',()=>flipM(d));
+    g.appendChild(d);
+  });
+}
+function flipM(card){
+  if(mBlock||card.classList.contains('matched')||card.classList.contains('flipped'))return;
+  sfxClick();
+  card.classList.add('flipped');mFlip.push(card);
+  if(mFlip.length===2){mTries++;document.getElementById('mtr').textContent=mTries;mBlock=true;setTimeout(chkM,950);}
+}
+function chkM(){
+  var a=mFlip[0],b=mFlip[1];
+  if(a.dataset.back===b.dataset.back&&a!==b){
+    a.classList.add('matched');b.classList.add('matched');
+    mMatch.push(a.dataset.back);
+    document.getElementById('mpr').textContent=mMatch.length;
+    sfxOk();
+    if(mMatch.length===6){
+      var pts=Math.max(60,120-mTries*4);
+      showFb('fb5',true,'¡Todos los pares encontrados! ¡Memoria increíble! +'+pts+' pts');
+      addPts(pts,3);
+      spawnConfetti();
+      setTimeout(()=>goTo(6),2200);
+    }
+  }else{
+    setTimeout(()=>{a.classList.remove('flipped');b.classList.remove('flipped');},300);
+    sfxErr();
+  }
+  mFlip=[];mBlock=false;
+}
+
+// ─── MISSION 5: QUIZ ─────────────────────────────────
+var qData=[
+  {q:'¿Qué característica NO pertenece a un algoritmo?',
+   o:['Tiene un inicio y un fin claro','Sus pasos son precisos','Puede ejecutarse infinitamente sin condición de parada','Produce un resultado definido'],ans:2},
+  {q:'Si el paso 3 dice "encender la estufa" y el paso 2 dice "poner la olla vacía", ¿existe un problema lógico?',
+   o:['No, el orden no importa','Sí, debe encenderse la estufa antes de colocar la olla','Sí, falta agua en la receta','No hay ningún error'],ans:1},
+  {q:'En un algoritmo, ¿qué es una CONDICIÓN?',
+   o:['Un error del sistema','Una pregunta que puede ser verdadera o falsa y determina qué hacer','El nombre de una función','La velocidad de ejecución'],ans:1},
+  {q:'¿Cuál de estos ejemplos es un ALGORITMO de la vida real?',
+   o:['Pensar en comer algo','Los pasos para preparar una receta en orden','Hablar con un amigo','Dormir'],ans:1},
+  {q:'En programación, un BUCLE sirve para:',
+   o:['Guardar datos','Mostrar la pantalla principal','Repetir una acción mientras se cumpla una condición','Conectar a internet'],ans:2},
+];
+var qIdx=0,qPts=0,qAnswered=false;
+
+function initQuiz(){qIdx=0;qPts=0;renderQ();}
+function renderQ(){
+  if(qIdx>=qData.length){
+    var p=qPts*24;addPts(p,4);
+    spawnConfetti();sfxWin();
+    document.getElementById('qwrap').innerHTML=
+      '<div class="center"><span style="font-size:58px">🎓</span>'+
+      '<h3 style="color:var(--green);margin:10px 0">¡Evaluación Completada!</h3>'+
+      '<p>Respondiste correctamente <strong style="color:var(--amber)">'+qPts+' de '+qData.length+'</strong> preguntas</p>'+
+      '<button class="btn btn-p mt" onclick="goTo(7)">🏆 Ver Resultados Finales</button></div>';
+    return;
+  }
+  qAnswered=false;
+  var q=qData[qIdx];
+  var dots='<div class="dots">';
+  for(var i=0;i<qData.length;i++)dots+='<div class="dot'+(i<qIdx?' done':'')+(i===qIdx?' active':'')+'"></div>';
+  dots+='</div>';
+  var html=dots+'<div class="story"><strong>Pregunta '+(qIdx+1)+' de '+qData.length+'</strong><br>'+q.q+'</div>'+
+    '<div class="choices">';
+  q.o.forEach(function(o,i){html+='<button class="cbtn" onclick="ansQ('+i+')">'+o+'</button>';});
+  html+='</div><div class="fb" id="fbq"></div>';
+  document.getElementById('qwrap').innerHTML=html;
+}
+function ansQ(i){
+  if(qAnswered)return;qAnswered=true;
+  var q=qData[qIdx];
+  var btns=document.querySelectorAll('.cbtn');
+  btns.forEach(b=>b.style.pointerEvents='none');
+  btns[i].className='cbtn '+(i===q.ans?'ok':'err');
+  btns[q.ans].className='cbtn ok';
+  var ok=i===q.ans;if(ok)qPts++;
+  var fb=document.getElementById('fbq');
+  fb.className='fb show '+(ok?'ok':'err');
+  fb.textContent=ok?'✅ ¡Correcto! Excelente razonamiento lógico.':'❌ No exactamente. La respuesta correcta está resaltada.';
+  if(ok)sfxOk();else sfxErr();
+  setTimeout(()=>{qIdx++;renderQ();},1900);
+}
+
+// ─── FINAL SCREEN ─────────────────────────────────────
+function showFinal(){
+  var t=G.pts;
+  document.getElementById('fscore').textContent=t;
+  var msg,troph,bname;
+  if(t>=420){msg='¡EXTRAORDINARIO! Eres un Maestro del Algoritmo. NICO-BOT aprendió TODO gracias a ti. ¡El futuro del código te espera! 🚀';troph='🏆';bname='Maestro del Algoritmo';}
+  else if(t>=260){msg='¡Muy bien hecho! Completaste la mayoría de misiones. NICO-BOT está feliz contigo. ¡Sigue practicando!';troph='🥈';bname='Pensador Lógico';}
+  else{msg='¡Buen inicio! Todo gran programador empieza desde cero. Inténtalo de nuevo y mejora tu puntaje.';troph='🎖️';bname='Aprendiz de Código';}
+  document.getElementById('troph').textContent=troph;
+  document.getElementById('ftitle').textContent=t>=260?'¡MISIÓN COMPLETADA!':'¡BUEN INTENTO!';
+  document.getElementById('fmsg').textContent=msg;
+
+  var bl=document.getElementById('fbadges');bl.innerHTML='';
+  var earned=[];
+  if(G.mpts[0]>0)earned.push({e:'🖥️',n:'Técnico Boot'});
+  if(G.mpts[1]>0)earned.push({e:'👨‍🍳',n:'Chef Lógico'});
+  if(G.mpts[2]>0)earned.push({e:'🤖',n:'Guía Robot'});
+  if(G.mpts[3]>0)earned.push({e:'🧩',n:'Memoria Pro'});
+  earned.push({e:troph===''?'🏆':troph,n:bname});
+  earned.forEach(function(b){
+    var d=document.createElement('div');
+    d.style.cssText='text-align:center;background:rgba(255,215,0,.07);border:1px solid rgba(255,215,0,.25);border-radius:11px;padding:10px 12px;min-width:80px';
+    d.innerHTML='<div style="font-size:26px">'+b.e+'</div><div style="font-size:10px;color:var(--amber);font-weight:800;margin-top:4px">'+b.n+'</div>';
+    bl.appendChild(d);
+  });
+
+  var sl=document.getElementById('sumlist');sl.innerHTML='';
+  var labs=['Encender Computador','La Receta del Desayuno','Guía al Robot','Código Secreto','Evaluación Final'];
+  var maxp=[80,100,80,120,120];
+  for(var i=0;i<5;i++){
+    var p=G.mpts[i];
+    var d=document.createElement('div');
+    d.style.cssText='display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:12px';
+    d.innerHTML='<span style="color:var(--muted)">Misión '+(i+1)+': '+labs[i]+'</span>'+
+      '<span style="color:'+(p>0?'var(--green)':'var(--red)')+';font-weight:800">'+(p>0?'+'+p+' ✓':'0 ✗')+'</span>';
+    sl.appendChild(d);
+  }
+  spawnConfetti();sfxWin();
+}
+
+function submitScore(){
+  // Moodle/H5P xAPI integration point
+  var msg='✅ Puntaje enviado: '+G.pts+'/500 pts · '+G.ms+'/5 misiones completadas.\nEstudiante aprobado en: "Reto Ordena el Algoritmo"\nCreado por Nicolás Pinilla';
+  alert(msg);
+}
+</script>
+</body>
+</html>
