@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title> NICO-BOT | Reto: Ordena el Algoritmo | por Nicolás Pinilla</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --cyan:#00f5ff; --purple:#7c3aed; --dark:#080818;
+  --card:#0f0f28; --card2:#171730; --text:#dde0ff;
+  --muted:#7779aa; --green:#00ff88; --amber:#ffd700;
+  --red:#ff3d5a; --pink:#ff6eb4; --blue:#3b82f6;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden}
+body{font-family:'Nunito',sans-serif;background:var(--dark);color:var(--text);display:flex;flex-direction:column}
+
+/* CANVAS BG */
+#bgCanvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none}
+
+/* HUD */
+.hud{position:fixed;top:0;left:0;right:0;z-index:200;height:50px;
+  background:rgba(8,8,24,0.92);border-bottom:1px solid rgba(0,245,255,0.15);
+  display:flex;align-items:center;justify-content:space-between;padding:0 16px;
+  backdrop-filter:blur(10px)}
+.hud-brand{font-family:'Orbitron',monospace;font-size:12px;color:var(--cyan);letter-spacing:3px}
+.hud-stats{display:flex;gap:14px;align-items:center}
+.hud-stat{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:800}
+.pts-c{color:var(--amber)} .lvl-c{color:var(--cyan)} .ms-c{color:var(--pink)}
+.pbar-wrap{position:fixed;top:50px;left:0;right:0;height:3px;z-index:200;background:rgba(255,255,255,0.06)}
+.pbar{height:100%;background:linear-gradient(90deg,var(--purple),var(--cyan));width:0%;transition:width .6s ease}
+
+/* SCREENS */
+.screen{position:absolute;inset:0;top:53px;overflow-y:auto;overflow-x:hidden;
+  display:none;flex-direction:column;align-items:center;z-index:10;padding:20px 16px 40px}
+.screen.active{display:flex}
+
+/* ROBOT SVG */
+.robot-float{animation:float 3s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+@keyframes scaleIn{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}
+@keyframes pop{0%{transform:scale(1)}50%{transform:scale(1.15)}100%{transform:scale(1)}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+@keyframes glow{0%,100%{text-shadow:0 0 10px var(--cyan)}50%{text-shadow:0 0 30px var(--cyan),0 0 60px var(--cyan)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes confetti{0%{opacity:1;transform:translateY(0) rotate(0deg)}100%{opacity:0;transform:translateY(200px) rotate(720deg)}}
+@keyframes musicPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
+
+.anim-up{animation:fadeUp .5s ease forwards}
+.anim-scale{animation:scaleIn .45s ease forwards}
+
+/* CARD */
+.card{background:var(--card);border:1px solid rgba(124,58,237,0.25);border-radius:20px;
+  padding:22px;width:100%;max-width:660px;margin:0 auto 14px;position:relative;z-index:10}
+.card-c{border-color:rgba(0,245,255,0.25)} .card-g{border-color:rgba(0,255,136,0.25)}
+.card-a{border-color:rgba(255,215,0,0.25)}
+
+/* TYPOGRAPHY */
+h1{font-family:'Orbitron',monospace;font-size:clamp(18px,4vw,26px);color:var(--cyan);text-align:center;line-height:1.25;margin-bottom:8px}
+h2{font-family:'Orbitron',monospace;font-size:clamp(14px,3vw,19px);color:#a78bfa;margin-bottom:12px}
+h3{font-size:15px;font-weight:800;color:var(--text);margin-bottom:8px}
+p{font-size:14px;line-height:1.65;color:var(--text);margin-bottom:6px}
+.muted{color:var(--muted);font-size:12px}
+
+/* BADGE */
+.badge{display:inline-block;padding:3px 11px;border-radius:50px;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase}
+.bp{background:rgba(124,58,237,.18);color:#a78bfa;border:1px solid rgba(124,58,237,.35)}
+.bc{background:rgba(0,245,255,.1);color:var(--cyan);border:1px solid rgba(0,245,255,.3)}
+.bg_{background:rgba(0,255,136,.1);color:var(--green);border:1px solid rgba(0,255,136,.3)}
+.ba{background:rgba(255,215,0,.1);color:var(--amber);border:1px solid rgba(255,215,0,.3)}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  padding:12px 28px;border-radius:50px;font-family:'Orbitron',monospace;
+  font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;border:none;
+  transition:all .2s;text-transform:uppercase}
+.btn-p{background:linear-gradient(135deg,#6d28d9,#4f46e5);color:#fff;box-shadow:0 0 18px rgba(109,40,217,.4)}
+.btn-p:hover{transform:scale(1.05);box-shadow:0 0 28px rgba(109,40,217,.7)}
+.btn-c{background:linear-gradient(135deg,#0e7490,#06b6d4);color:#001a1f}
+.btn-c:hover{transform:scale(1.05)}
+.btn-g{background:linear-gradient(135deg,#047857,#10b981);color:#001a0d;font-weight:900}
+.btn-g:hover{transform:scale(1.05)}
+.btn-o{background:transparent;border:1px solid rgba(0,245,255,.35);color:var(--cyan);font-size:10px;padding:8px 16px}
+.btn-o:hover{background:rgba(0,245,255,.08)}
+.btn:active{transform:scale(.97)}
+
+/* ROBOT BUBBLE */
+.bubble{background:rgba(0,245,255,.07);border:1px solid rgba(0,245,255,.25);
+  border-radius:14px;padding:12px 16px;font-size:13px;font-weight:600;color:var(--cyan);
+  max-width:500px;margin:10px auto;text-align:center;position:relative}
+
+/* DIVIDER */
+.divider{height:1px;background:rgba(124,58,237,.18);margin:14px 0}
+
+/* CONCEPT GRID */
+.cgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0}
+.cbox{background:var(--card2);border-radius:12px;padding:14px;border:1px solid rgba(124,58,237,.15)}
+.cbox h4{font-size:11px;color:var(--cyan);margin-bottom:6px;font-weight:800;text-transform:uppercase;letter-spacing:1px}
+.cbox p{font-size:12px;color:var(--muted);margin:0}
+
+/* STEPS DOTS */
+.dots{display:flex;gap:7px;justify-content:center;margin-bottom:14px}
+.dot{width:9px;height:9px;border-radius:50%;background:rgba(124,58,237,.3);transition:.3s}
+.dot.done{background:var(--green)}
+.dot.active{background:var(--cyan);transform:scale(1.4)}
+
+/* MISSION ITEM */
+.mission{background:linear-gradient(135deg,rgba(124,58,237,.12),rgba(0,245,255,.06));
+  border:1px solid rgba(124,58,237,.3);border-radius:14px;padding:13px 16px;
+  margin:7px 0;display:flex;align-items:center;gap:13px}
+.micon{font-size:26px;flex-shrink:0}
+.mtitle{font-weight:800;font-size:14px}
+.msub{font-size:11px;color:var(--muted);margin-top:2px}
+
+/* DRAG DROP */
+.dnd-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}
+.dzone{border:2px dashed rgba(124,58,237,.35);border-radius:12px;padding:10px;
+  min-height:50px;background:rgba(124,58,237,.04);transition:.2s}
+.dzone.over{border-color:var(--cyan);background:rgba(0,245,255,.07)}
+.ditem{background:var(--card2);border:1px solid rgba(124,58,237,.35);border-radius:9px;
+  padding:9px 12px;margin:5px 0;cursor:grab;font-size:13px;font-weight:700;
+  display:flex;align-items:center;gap:8px;user-select:none;transition:.15s}
+.ditem:hover{border-color:var(--cyan);transform:translateX(2px)}
+.ditem.dragging{opacity:.35}
+.dnum{width:22px;height:22px;border-radius:50%;background:rgba(124,58,237,.3);
+  display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;
+  color:#a78bfa;flex-shrink:0}
+
+/* FEEDBACK */
+.fb{border-radius:11px;padding:11px 14px;font-size:13px;font-weight:700;margin:10px 0;display:none}
+.fb.show{display:block}
+.fb.ok{background:rgba(0,255,136,.09);border:1px solid rgba(0,255,136,.3);color:var(--green)}
+.fb.err{background:rgba(255,61,90,.09);border:1px solid rgba(255,61,90,.3);color:var(--red)}
+
+/* STORY BOX */
+.story{background:rgba(124,58,237,.09);border-left:3px solid var(--purple);
+  border-radius:0 11px 11px 0;padding:12px 14px;margin-bottom:12px;
+  font-size:13px;font-style:italic;color:#c4b5fd;line-height:1.5}
+
+/* TROPHY */
+.trophy{font-size:72px;text-align:center;display:block;margin:8px 0;
+  animation:pop .5s ease}
+.score-big{font-family:'Orbitron',monospace;font-size:clamp(36px,8vw,56px);
+  color:var(--amber);text-align:center;font-weight:900;
+  animation:glow 2s ease infinite}
+
+/* CONFETTI PIECE */
+.conf{position:fixed;width:8px;height:8px;border-radius:2px;pointer-events:none;
+  animation:confetti 1.5s ease forwards;z-index:999}
+
+/* FOOTER CREDIT */
+.credit{position:fixed;bottom:0;left:0;right:0;z-index:300;
+  background:rgba(8,8,24,0.88);border-top:1px solid rgba(124,58,237,.15);
+  height:22px;display:flex;align-items:center;justify-content:center;
+  font-size:9px;color:var(--muted);font-family:'Orbitron',monospace;letter-spacing:2px}
+
+/* UTILS */
+.center{text-align:center}
+.row{display:flex;gap:9px;flex-wrap:wrap;align-items:center;justify-content:center}
+.mt{margin-top:14px}
+.mb{margin-bottom:12px}
+.gap{display:flex;flex-direction:column;gap:8px}
+
+/* ORDERED RESULT */
+.ostep{display:flex;align-items:center;gap:9px;background:rgba(0,255,136,.07);
+  border:1px solid rgba(0,255,136,.25);border-radius:9px;padding:9px 12px;
+  margin:4px 0;font-size:13px;font-weight:700}
+.onum{width:24px;height:24px;border-radius:50%;background:var(--green);color:#001a0d;
+  display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;flex-shrink:0}
+
+/* SOUND / MUSIC BUTTON */
+.sound-btn{position:fixed;bottom:28px;right:12px;z-index:400;width:36px;height:36px;
+  border-radius:50%;background:rgba(0,245,255,.12);border:1px solid rgba(0,245,255,.3);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;
+  transition:.2s}
+.sound-btn:hover{background:rgba(0,245,255,.25)}
+.sound-btn.playing{animation:musicPulse 1s ease-in-out infinite;border-color:var(--amber);background:rgba(255,215,0,.15)}
+
+/* MUSIC INDICATOR */
+.music-badge{position:fixed;bottom:28px;left:12px;z-index:400;
+  background:rgba(8,8,24,0.88);border:1px solid rgba(0,245,255,.2);border-radius:20px;
+  padding:5px 11px;font-size:9px;color:var(--muted);font-family:'Orbitron',monospace;
+  letter-spacing:1px;display:flex;align-items:center;gap:5px;transition:.3s}
+.music-badge .note{color:var(--cyan);animation:musicPulse .8s ease-in-out infinite}
+
+/* PASO INFO BOX */
+.paso-info{background:rgba(0,245,255,.05);border:1px solid rgba(0,245,255,.18);
+  border-radius:12px;padding:12px 14px;margin:10px 0;font-size:12px;color:var(--muted);line-height:1.6}
+.paso-info strong{color:var(--cyan)}
+</style>
+</head>
+<body>
+
+<canvas id="bgCanvas"></canvas>
+
+<div class="hud">
+  <div class="hud-brand">NICO&#8209;BOT</div>
+  <div class="hud-stats">
+    <div class="hud-stat pts-c">★ <span id="ptsD">0</span></div>
+    <div class="hud-stat lvl-c">⚡ Nv.<span id="lvlD">1</span></div>
+    <div class="hud-stat ms-c">🎯 <span id="msD">0</span>/3</div>
+  </div>
+</div>
+<div class="pbar-wrap"><div class="pbar" id="pbar"></div></div>
+
+<!-- ░░ SCREEN 0 — BIENVENIDA ░░ -->
+<div class="screen active" id="s0">
+  <div style="margin-top:10px;text-align:center" class="anim-scale">
+    <svg class="robot-float" width="110" height="110" viewBox="0 0 110 110" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="rg1" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#1e1e45"/>
+          <stop offset="100%" stop-color="#0f0f28"/>
+        </radialGradient>
+      </defs>
+      <rect x="25" y="32" width="60" height="52" rx="10" fill="url(#rg1)" stroke="#00f5ff" stroke-width="1.8"/>
+      <rect x="34" y="42" width="15" height="10" rx="3" fill="#00f5ff" opacity=".85"/>
+      <circle cx="41" cy="47" r="3" fill="#001a1f"/>
+      <rect x="61" y="42" width="15" height="10" rx="3" fill="#00f5ff" opacity=".85"/>
+      <circle cx="68" cy="47" r="3" fill="#001a1f"/>
+      <rect x="38" y="63" width="34" height="8" rx="4" fill="#7c3aed" opacity=".7"/>
+      <rect x="44" y="65" width="6" height="4" rx="2" fill="#a78bfa"/>
+      <rect x="52" y="65" width="6" height="4" rx="2" fill="#a78bfa"/>
+      <rect x="60" y="65" width="6" height="4" rx="2" fill="#a78bfa"/>
+      <rect x="33" y="27" width="44" height="8" rx="4" fill="#0f0f28" stroke="#7c3aed" stroke-width="1.3"/>
+      <circle cx="55" cy="23" r="6" fill="#00f5ff" opacity=".9"/>
+      <circle cx="55" cy="23" r="3" fill="#001a1f"/>
+      <rect x="14" y="38" width="11" height="30" rx="5.5" fill="#0f0f28" stroke="#7c3aed" stroke-width="1.3"/>
+      <rect x="85" y="38" width="11" height="30" rx="5.5" fill="#0f0f28" stroke="#7c3aed" stroke-width="1.3"/>
+      <rect x="33" y="84" width="16" height="18" rx="5" fill="#0f0f28" stroke="#7c3aed" stroke-width="1.3"/>
+      <rect x="61" y="84" width="16" height="18" rx="5" fill="#0f0f28" stroke="#7c3aed" stroke-width="1.3"/>
+      <circle cx="14" cy="53" r="4" fill="#00f5ff" opacity=".35"/>
+      <circle cx="96" cy="53" r="4" fill="#00f5ff" opacity=".35"/>
+    </svg>
+  </div>
+
+  <div class="card card-c anim-up" style="max-width:560px;text-align:center;margin-top:4px">
+    <div class="mb row"><span class="badge bp">Módulo 1</span> <span class="badge bc">Algoritmos Básicos</span></div>
+    <h1>RETO:<br>Ordena el Algoritmo</h1>
+    <p class="muted" style="margin:6px 0 10px">Programación · Grado 8° · Nicolás Pinilla</p>
+    <div class="divider"></div>
+    <div class="bubble">
+      ¡Hola, programador! Soy <strong>NICO-BOT</strong> 🤖<br>
+      Hoy aprenderás a <strong>construir algoritmos básicos</strong> paso a paso.<br>¿Aceptas la misión?
+    </div>
+    <div style="margin:12px 0">
+      <div class="mission"><div class="micon">🖥️</div><div><div class="mtitle">Misión 1 — Algoritmo del Computador</div><div class="msub">Ordena los pasos para encender y usar el computador</div></div></div>
+      <div class="mission"><div class="micon">🧃</div><div><div class="mtitle">Misión 2 — Algoritmo del Jugo</div><div class="msub">Construye la secuencia para preparar un jugo natural</div></div></div>
+      <div class="mission"><div class="micon">📧</div><div><div class="mtitle">Misión 3 — Algoritmo del Correo</div><div class="msub">Organiza los pasos para enviar un correo electrónico</div></div></div>
+      <div class="mission"><div class="micon">⭐</div><div><div class="mtitle">Recompensas</div><div class="msub">Hasta 300 pts · 3 insignias · Título "Maestro del Algoritmo"</div></div></div>
+    </div>
+    <button class="btn btn-p" onclick="startGame()" style="margin-top:6px">🚀 ¡ACEPTAR MISIÓN!</button>
+    <p class="muted mt">♪ Música activada · Activa el sonido de tu dispositivo</p>
+  </div>
+</div>
+
+<!-- ░░ SCREEN 1 — INTRODUCCIÓN ░░ -->
+<div class="screen" id="s1">
+  <div class="card card-c anim-up" style="max-width:640px">
+    <div class="dots" id="idots">
+      <div class="dot active" id="id0"></div>
+      <div class="dot" id="id1"></div>
+      <div class="dot" id="id2"></div>
+    </div>
+
+    <div id="is0">
+      <div class="center mb"><span style="font-size:46px">🤔</span><h2 style="margin-top:8px">¿Qué es un Algoritmo?</h2></div>
+      <div class="bubble">Imagina que quieres enseñarme a preparar un sandwich. ¡Necesitas ser MUY exacto con cada paso!</div>
+      <div class="cgrid mt">
+        <div class="cbox"><h4>📋 Definición</h4><p>Un <strong style="color:var(--cyan)">algoritmo</strong> es una secuencia de pasos ordenados, precisos y finitos para resolver un problema.</p></div>
+        <div class="cbox"><h4>✅ Características</h4><p>• Tiene inicio y fin claros<br>• Pasos en orden exacto<br>• Preciso y sin ambigüedad<br>• Produce un resultado</p></div>
+      </div>
+      <div class="cbox mt" style="background:rgba(255,215,0,.05);border-color:rgba(255,215,0,.25)">
+        <h4 style="color:var(--amber)">💡 Ejemplo de la vida real</h4>
+        <p style="color:var(--text)">Lavarte los dientes es un algoritmo:<br>
+        1️⃣ Tomar cepillo → 2️⃣ Agregar pasta → 3️⃣ Cepillar 2 min → 4️⃣ Enjuagar → 5️⃣ Guardar</p>
+      </div>
+      <div class="center mt"><button class="btn btn-c" onclick="iSlide(1)">Siguiente →</button></div>
+    </div>
+
+    <div id="is1" style="display:none">
+      <div class="center mb"><span style="font-size:46px">🔢</span><h2 style="margin-top:8px">Secuencia y Orden Lógico</h2></div>
+      <div class="bubble">¿Y si mezclo los pasos? ¿Qué pasa si me enjuago ANTES de cepillarme? 😵 ¡El resultado es incorrecto!</div>
+      <div class="cgrid mt">
+        <div class="cbox"><h4>📐 Secuencia</h4><p>El <strong style="color:var(--cyan)">orden correcto</strong> de los pasos. Alterar el orden puede romper completamente el algoritmo.</p></div>
+        <div class="cbox"><h4>⚠️ Sin orden correcto</h4><p>Si los pasos están desordenados, el resultado es <strong style="color:var(--red)">incorrecto, absurdo o imposible</strong>.</p></div>
+      </div>
+      <div class="paso-info">
+        <strong>En este módulo solo trabajamos:</strong><br>
+        ✅ Secuencias — pasos uno tras otro en orden<br>
+        ✅ Entradas — datos que recibe el algoritmo<br>
+        ✅ Salidas — resultados que produce el algoritmo<br>
+        <span style="color:var(--muted)">❌ Sin condicionales (if/else) — eso es para el siguiente módulo</span>
+      </div>
+      <div class="row mt">
+        <button class="btn btn-o" onclick="iSlide(0)">← Anterior</button>
+        <button class="btn btn-c" onclick="iSlide(2)">Siguiente →</button>
+      </div>
+    </div>
+
+    <div id="is2" style="display:none">
+      <div class="center mb"><span style="font-size:46px">🏆</span><h2 style="margin-top:8px">¡Listo para los Retos!</h2></div>
+      <div class="bubble">¡Excelente! Ya tienes la teoría. Ahora practica con 3 misiones de Drag & Drop. ¡Arrastra los pasos en el orden correcto!</div>
+      <div class="gap mt">
+        <div class="mission"><div class="micon">🖥️</div><div><div class="mtitle">Misión 1 — Drag & Drop</div><div class="msub">Algoritmo: encender y usar el computador</div></div></div>
+        <div class="mission"><div class="micon">🧃</div><div><div class="mtitle">Misión 2 — Drag & Drop</div><div class="msub">Algoritmo: preparar un jugo natural</div></div></div>
+        <div class="mission"><div class="micon">📧</div><div><div class="mtitle">Misión 3 — Drag & Drop</div><div class="msub">Algoritmo: enviar un correo electrónico</div></div></div>
+      </div>
+      <div class="center mt"><button class="btn btn-p" onclick="goTo(2)">⚡ ¡COMENZAR MISIONES!</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ░░ SCREEN 2 — MISIÓN 1: COMPUTADOR ░░ -->
+<div class="screen" id="s2">
+  <div class="card anim-up" style="max-width:660px">
+    <div class="row mb"><span class="badge bp">Misión 1 de 3</span><span class="badge ba">+100 pts</span><span class="badge bc">Drag & Drop</span></div>
+    <h2>🖥️ Algoritmo: Usar el Computador</h2>
+    <div class="story">
+      NICO-BOT quiere aprender a usar un computador desde cero. Ayúdalo poniendo los pasos en el orden correcto. <strong>Recuerda:</strong> cada acción depende de la anterior.
+    </div>
+    <div class="paso-info">
+      🎯 <strong>Objetivo:</strong> Construir el algoritmo completo para encender, ingresar y trabajar en un computador.<br>
+      📌 <strong>Tip:</strong> Piensa: ¿qué debe pasar PRIMERO para que lo siguiente sea posible?
+    </div>
+    <div class="bubble">Arrastra (o toca) los pasos al panel derecho en el orden correcto. ¡La secuencia importa!</div>
+    <div class="dnd-grid">
+      <div>
+        <p class="muted mb" style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px">📦 Pasos disponibles</p>
+        <div id="dnd1-src" class="dzone"></div>
+      </div>
+      <div>
+        <p class="muted mb" style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px">📋 Tu secuencia</p>
+        <div id="dnd1-tgt" class="dzone" style="min-height:280px"></div>
+      </div>
+    </div>
+    <div class="fb" id="fb1"></div>
+    <div class="row mt">
+      <button class="btn btn-o" onclick="initDnd1()">↩ Reiniciar</button>
+      <button class="btn btn-g" onclick="checkDnd1()">✓ Verificar Orden</button>
+    </div>
+  </div>
+</div>
+
+<!-- ░░ SCREEN 3 — MISIÓN 2: JUGO ░░ -->
+<div class="screen" id="s3">
+  <div class="card anim-up" style="max-width:660px">
+    <div class="row mb"><span class="badge bp">Misión 2 de 3</span><span class="badge ba">+100 pts</span><span class="badge bc">Drag & Drop</span></div>
+    <h2>🧃 Algoritmo: Preparar un Jugo Natural</h2>
+    <div class="story">
+      La familia de NICO-BOT quiere jugo de naranja. Él sabe cuáles son los pasos, pero los tiene completamente desordenados. ¡Ayúdalo a construir el algoritmo correcto!
+    </div>
+    <div class="paso-info">
+      🎯 <strong>Objetivo:</strong> Organizar los pasos para preparar un jugo natural de principio a fin.<br>
+      📌 <strong>Tip:</strong> ¿Puedes exprimir sin lavar? ¿Puedes servir sin tener el jugo listo?
+    </div>
+    <div class="bubble">Arrastra (o toca) los pasos al panel derecho en el orden correcto.</div>
+    <div class="dnd-grid">
+      <div>
+        <p class="muted mb" style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px">📦 Pasos disponibles</p>
+        <div id="dnd2-src" class="dzone"></div>
+      </div>
+      <div>
+        <p class="muted mb" style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px">📋 Tu secuencia</p>
+        <div id="dnd2-tgt" class="dzone" style="min-height:280px"></div>
+      </div>
+    </div>
+    <div class="fb" id="fb2"></div>
+    <div class="row mt">
+      <button class="btn btn-o" onclick="initDnd2()">↩ Reiniciar</button>
+      <button class="btn btn-g" onclick="checkDnd2()">✓ Verificar Orden</button>
+    </div>
+  </div>
+</div>
+
+<!-- ░░ SCREEN 4 — MISIÓN 3: CORREO ░░ -->
+<div class="screen" id="s4">
+  <div class="card anim-up" style="max-width:660px">
+    <div class="row mb"><span class="badge bp">Misión 3 de 3</span><span class="badge ba">+100 pts</span><span class="badge bc">Drag & Drop</span></div>
+    <h2>📧 Algoritmo: Enviar un Correo</h2>
+    <div class="story">
+      NICO-BOT necesita enviar un correo a su maestra con la tarea. Tiene todos los pasos, pero está confundido con el orden. ¡Construye el algoritmo y enséñale a comunicarse!
+    </div>
+    <div class="paso-info">
+      🎯 <strong>Objetivo:</strong> Ordenar los pasos del algoritmo para redactar y enviar un correo electrónico.<br>
+      📌 <strong>Tip:</strong> ¿Puedes escribir el mensaje sin abrir el correo? ¿Puedes enviar sin destinatario?
+    </div>
+    <div class="bubble">Arrastra (o toca) los pasos al panel derecho en el orden correcto.</div>
+    <div class="dnd-grid">
+      <div>
+        <p class="muted mb" style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px">📦 Pasos disponibles</p>
+        <div id="dnd3-src" class="dzone"></div>
+      </div>
+      <div>
+        <p class="muted mb" style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px">📋 Tu secuencia</p>
+        <div id="dnd3-tgt" class="dzone" style="min-height:280px"></div>
+      </div>
+    </div>
+    <div class="fb" id="fb3"></div>
+    <div class="row mt">
+      <button class="btn btn-o" onclick="initDnd3()">↩ Reiniciar</button>
+      <button class="btn btn-g" onclick="checkDnd3()">✓ Verificar Orden</button>
+    </div>
+  </div>
+</div>
+
+<!-- ░░ SCREEN 5 — PANTALLA FINAL ░░ -->
+<div class="screen" id="s5">
+  <div class="card card-a anim-up" style="max-width:560px;text-align:center">
+    <span class="trophy" id="troph">🏆</span>
+    <h1 id="ftitle">¡MISIÓN COMPLETADA!</h1>
+    <div class="divider"></div>
+    <p class="muted">Tu puntaje final</p>
+    <div class="score-big" id="fscore">0</div>
+    <p class="muted">/300 puntos posibles</p>
+    <div class="divider"></div>
+    <div id="fbadges" class="row" style="justify-content:center;margin:12px 0;flex-wrap:wrap"></div>
+    <div class="bubble" id="fmsg" style="margin:12px auto"></div>
+    <div style="margin:14px 0;background:var(--card2);border-radius:12px;padding:13px;text-align:left">
+      <p class="muted" style="font-weight:800;margin-bottom:9px;font-size:11px;text-transform:uppercase;letter-spacing:1px">📊 Resumen de Misiones</p>
+      <div id="sumlist"></div>
+    </div>
+    <div class="row mt">
+      <button class="btn btn-o" onclick="location.reload()">↩ Jugar de nuevo</button>
+      <button class="btn btn-p" onclick="submitScore()">📤 Enviar a Moodle</button>
+    </div>
+    <p class="muted mt" style="font-size:10px">Creado por <strong style="color:var(--amber)">Nicolás Pinilla</strong> · Diseñador Instruccional · H5P/Moodle Ready</p>
+  </div>
+</div>
+
+<div class="credit">NICO-BOT OVA · Módulo 1: Algoritmos Básicos · Creado por Nicolás Pinilla</div>
+<div class="sound-btn" id="soundBtn" onclick="toggleMusic()" title="Música de fondo">🎵</div>
+<div class="music-badge" id="musicBadge"><span class="note">♪</span> Música activa</div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────
+var G={pts:0,lvl:1,ms:0,mpts:[0,0,0],cur:0,soundOn:true,musicOn:true};
+var screens=['s0','s1','s2','s3','s4','s5'];
+var pcts=[0,12,35,60,82,100];
+
+// ─── WEB AUDIO CONTEXT ───────────────────────────────
+var ctx;
+function ensureCtx(){if(!ctx){ctx=new(window.AudioContext||window.webkitAudioContext)();}}
+
+// ─── BACKGROUND MUSIC ────────────────────────────────
+// Música chiptune generada 100% con Web Audio API
+var musicNodes=[];
+var musicScheduled=false;
+var musicGain;
+var musicSeq=0;
+
+// Melodía tipo chiptune retro-futurista
+var melodyNotes=[
+  // C4, E4, G4, A4, G4, E4, C4 - escala mayor simple
+  261.63, 329.63, 392.00, 440.00, 392.00, 329.63, 261.63, 293.66,
+  329.63, 392.00, 523.25, 493.88, 440.00, 392.00, 329.63, 261.63,
+  392.00, 440.00, 493.88, 523.25, 587.33, 523.25, 493.88, 440.00,
+  392.00, 329.63, 293.66, 261.63, 293.66, 329.63, 392.00, 261.63
+];
+var bassNotes=[
+  130.81, 130.81, 196.00, 196.00,
+  164.81, 164.81, 130.81, 130.81,
+  196.00, 196.00, 261.63, 261.63,
+  164.81, 164.81, 196.00, 196.00
+];
+
+var melodyIdx=0;
+var bassIdx=0;
+var musicTimer=null;
+var beatInterval=0.22; // segundos por nota
+
+function startMusic(){
+  if(!G.soundOn||!G.musicOn)return;
+  try{
+    ensureCtx();
+    if(ctx.state==='suspended')ctx.resume();
+    
+    // Crear nodo de ganancia para la música
+    musicGain=ctx.createGain();
+    musicGain.gain.setValueAtTime(0.04,ctx.currentTime);
+    musicGain.connect(ctx.destination);
+    
+    scheduleMusicBeat();
+  }catch(e){console.log('music error',e);}
+}
+
+function scheduleMusicBeat(){
+  if(!G.musicOn)return;
+  musicTimer=setInterval(function(){
+    if(!G.soundOn||!G.musicOn)return;
+    try{
+      var t=ctx.currentTime;
+      
+      // Melodía principal (onda cuadrada)
+      var oMel=ctx.createOscillator();
+      var gMel=ctx.createGain();
+      oMel.type='square';
+      oMel.frequency.setValueAtTime(melodyNotes[melodyIdx%melodyNotes.length],t);
+      gMel.gain.setValueAtTime(0.04,t);
+      gMel.gain.exponentialRampToValueAtTime(0.001,t+beatInterval*0.8);
+      oMel.connect(gMel);
+      gMel.connect(ctx.destination);
+      oMel.start(t);
+      oMel.stop(t+beatInterval*0.85);
+      melodyIdx++;
+      
+      // Bajo (cada 2 beats)
+      if(melodyIdx%2===0){
+        var oBass=ctx.createOscillator();
+        var gBass=ctx.createGain();
+        oBass.type='triangle';
+        oBass.frequency.setValueAtTime(bassNotes[bassIdx%bassNotes.length],t);
+        gBass.gain.setValueAtTime(0.035,t);
+        gBass.gain.exponentialRampToValueAtTime(0.001,t+beatInterval*1.6);
+        oBass.connect(gBass);
+        gBass.connect(ctx.destination);
+        oBass.start(t);
+        oBass.stop(t+beatInterval*1.7);
+        bassIdx++;
+      }
+      
+      // Pulso de batería (cada 4 beats)
+      if(melodyIdx%4===0){
+        var oDrum=ctx.createOscillator();
+        var gDrum=ctx.createGain();
+        oDrum.type='sine';
+        oDrum.frequency.setValueAtTime(80,t);
+        oDrum.frequency.exponentialRampToValueAtTime(40,t+0.08);
+        gDrum.gain.setValueAtTime(0.06,t);
+        gDrum.gain.exponentialRampToValueAtTime(0.001,t+0.1);
+        oDrum.connect(gDrum);
+        gDrum.connect(ctx.destination);
+        oDrum.start(t);
+        oDrum.stop(t+0.12);
+      }
+    }catch(e){}
+  }, beatInterval*1000);
+}
+
+function stopMusic(){
+  if(musicTimer){clearInterval(musicTimer);musicTimer=null;}
+}
+
+function toggleMusic(){
+  G.musicOn=!G.musicOn;
+  var btn=document.getElementById('soundBtn');
+  var badge=document.getElementById('musicBadge');
+  if(G.musicOn){
+    btn.textContent='🎵';
+    btn.classList.add('playing');
+    badge.style.opacity='1';
+    startMusic();
+  }else{
+    btn.textContent='🔇';
+    btn.classList.remove('playing');
+    badge.style.opacity='0.3';
+    stopMusic();
+  }
+}
+
+// Arrancar música cuando el usuario hace click por primera vez (políticas del navegador)
+function startGame(){
+  try{
+    ensureCtx();
+    if(ctx.state==='suspended')ctx.resume().then(function(){startMusic();});
+    else startMusic();
+  }catch(e){}
+  document.getElementById('soundBtn').classList.add('playing');
+  goTo(1);
+}
+
+// ─── SFX ─────────────────────────────────────────────
+function beep(freq,dur,type,vol){
+  if(!G.soundOn)return;
+  try{ensureCtx();
+    var o=ctx.createOscillator(),g=ctx.createGain();
+    o.connect(g);g.connect(ctx.destination);
+    o.type=type||'sine';o.frequency.setValueAtTime(freq,ctx.currentTime);
+    g.gain.setValueAtTime(vol||0.15,ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur);
+    o.start();o.stop(ctx.currentTime+dur);
+  }catch(e){}
+}
+function sfxOk(){beep(523,.12,'square',.08);setTimeout(()=>beep(659,.12,'square',.08),100);setTimeout(()=>beep(784,.2,'square',.1),200);}
+function sfxErr(){beep(220,.15,'sawtooth',.1);setTimeout(()=>beep(180,.25,'sawtooth',.08),150);}
+function sfxWin(){[523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,.15,'square',.12),i*100));}
+function sfxClick(){beep(440,.05,'sine',.05);}
+
+// ─── BG CANVAS PARTICLES ──────────────────────────────
+(function(){
+  var c=document.getElementById('bgCanvas');
+  var cx=c.getContext('2d');
+  var pts=[];
+  function resize(){c.width=window.innerWidth;c.height=window.innerHeight;}
+  resize();window.addEventListener('resize',resize);
+  for(var i=0;i<60;i++)pts.push({x:Math.random()*c.width,y:Math.random()*c.height,r:.5+Math.random()*1.2,vx:(Math.random()-.5)*.2,vy:(Math.random()-.5)*.2,a:Math.random()});
+  function draw(){
+    cx.clearRect(0,0,c.width,c.height);
+    pts.forEach(function(p){
+      p.x+=p.vx;p.y+=p.vy;p.a+=.01;
+      if(p.x<0||p.x>c.width)p.vx*=-1;
+      if(p.y<0||p.y>c.height)p.vy*=-1;
+      cx.beginPath();cx.arc(p.x,p.y,p.r,0,6.28);
+      cx.fillStyle='rgba(0,245,255,'+(0.2+Math.sin(p.a)*0.15)+')';cx.fill();
+    });
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+// ─── CONFETTI ─────────────────────────────────────────
+function spawnConfetti(){
+  var cols=['#00f5ff','#ffd700','#ff6eb4','#00ff88','#a78bfa'];
+  for(var i=0;i<35;i++){
+    var d=document.createElement('div');
+    d.className='conf';
+    d.style.cssText='position:fixed;width:8px;height:8px;border-radius:2px;pointer-events:none;animation:confetti 1.5s ease forwards;z-index:999';
+    d.style.left=Math.random()*100+'vw';
+    d.style.top='-10px';
+    d.style.background=cols[i%cols.length];
+    d.style.animationDelay=(Math.random()*0.8)+'s';
+    d.style.animationDuration=(1.2+Math.random()*.8)+'s';
+    d.style.transform='rotate('+(Math.random()*360)+'deg)';
+    document.body.appendChild(d);
+    setTimeout(function(el){el.remove();},2200,d);
+  }
+}
+
+// ─── NAVIGATION ──────────────────────────────────────
+function goTo(n){
+  sfxClick();
+  document.getElementById(screens[G.cur]).classList.remove('active');
+  G.cur=n;
+  document.getElementById(screens[n]).classList.add('active');
+  document.getElementById('pbar').style.width=pcts[n]+'%';
+  updHud();
+  if(n===2)initDnd1();
+  if(n===3)initDnd2();
+  if(n===4)initDnd3();
+  if(n===5)showFinal();
+  document.getElementById(screens[n]).scrollTop=0;
+}
+function updHud(){
+  document.getElementById('ptsD').textContent=G.pts;
+  document.getElementById('lvlD').textContent=G.lvl;
+  document.getElementById('msD').textContent=G.ms;
+}
+function addPts(p,mi){
+  G.pts+=p;G.mpts[mi]=p;G.ms++;
+  if(G.pts>=150)G.lvl=2;if(G.pts>=250)G.lvl=3;
+  updHud();
+}
+function showFb(id,ok,msg){
+  var el=document.getElementById(id);
+  el.className='fb show '+(ok?'ok':'err');
+  el.textContent=(ok?'✅ ':'❌ ')+msg;
+  if(ok)sfxOk();else sfxErr();
+}
+
+// ─── INTRO SLIDES ─────────────────────────────────────
+function iSlide(n){
+  sfxClick();
+  for(var i=0;i<3;i++){
+    document.getElementById('is'+i).style.display='none';
+    var d=document.getElementById('id'+i);
+    d.className='dot'+(i<n?' done':'');
+  }
+  document.getElementById('is'+n).style.display='block';
+  document.getElementById('id'+n).className='dot active';
+}
+
+// ─── DRAG & DROP ENGINE ──────────────────────────────
+var dragEl=null;
+var touchDragEl=null;
+var touchClone=null;
+
+function makeDItem(it){
+  var d=document.createElement('div');
+  d.className='ditem';d.draggable=true;d.dataset.ord=it.ord;
+  d.innerHTML='<span class="dnum">?</span><span>'+it.text+'</span>';
+  addDragEvents(d);
+  return d;
+}
+
+function addDragEvents(el){
+  // Mouse drag
+  el.addEventListener('dragstart',function(e){dragEl=el;el.classList.add('dragging');});
+  el.addEventListener('dragend',function(){el.classList.remove('dragging');dragEl=null;});
+  // Click to toggle
+  el.addEventListener('click',function(){
+    sfxClick();
+    var srcId=el.closest('.screen').querySelector('[id$="-src"]').id;
+    var tgtId=el.closest('.screen').querySelector('[id$="-tgt"]').id;
+    var src=document.getElementById(srcId);
+    var tgt=document.getElementById(tgtId);
+    if(!src||!tgt)return;
+    if(el.parentNode===src)tgt.appendChild(el);else src.appendChild(el);
+  });
+  // Touch drag
+  el.addEventListener('touchstart',function(e){
+    touchDragEl=el;
+    el.classList.add('dragging');
+    var touch=e.touches[0];
+    touchClone=el.cloneNode(true);
+    touchClone.style.cssText='position:fixed;z-index:9999;opacity:0.8;pointer-events:none;width:'+el.offsetWidth+'px;top:'+(touch.clientY-20)+'px;left:'+(touch.clientX-el.offsetWidth/2)+'px';
+    document.body.appendChild(touchClone);
+  },{passive:true});
+  el.addEventListener('touchmove',function(e){
+    if(!touchClone)return;
+    var touch=e.touches[0];
+    touchClone.style.top=(touch.clientY-20)+'px';
+    touchClone.style.left=(touch.clientX-touchClone.offsetWidth/2)+'px';
+    // Highlight drop zone
+    document.querySelectorAll('.dzone').forEach(function(z){
+      var r=z.getBoundingClientRect();
+      if(touch.clientX>r.left&&touch.clientX<r.right&&touch.clientY>r.top&&touch.clientY<r.bottom)
+        z.classList.add('over');
+      else z.classList.remove('over');
+    });
+  },{passive:true});
+  el.addEventListener('touchend',function(e){
+    if(touchClone){touchClone.remove();touchClone=null;}
+    if(!touchDragEl)return;
+    touchDragEl.classList.remove('dragging');
+    var touch=e.changedTouches[0];
+    var zones=document.querySelectorAll('.dzone');
+    zones.forEach(function(z){
+      z.classList.remove('over');
+      var r=z.getBoundingClientRect();
+      if(touch.clientX>r.left&&touch.clientX<r.right&&touch.clientY>r.top&&touch.clientY<r.bottom){
+        z.appendChild(touchDragEl);
+        sfxClick();
+      }
+    });
+    touchDragEl=null;
+  },{passive:true});
+}
+
+function setupDropZone(zoneId){
+  var z=document.getElementById(zoneId);
+  z.addEventListener('dragover',function(e){e.preventDefault();z.classList.add('over');});
+  z.addEventListener('dragleave',function(){z.classList.remove('over');});
+  z.addEventListener('drop',function(e){
+    e.preventDefault();z.classList.remove('over');
+    if(dragEl){
+      var cl=dragEl.cloneNode(true);
+      addDragEvents(cl);
+      z.appendChild(cl);
+      dragEl.remove();
+      dragEl=null;
+    }
+  });
+}
+
+function checkOrder(tgtId, total, fbId, pts, missionIdx, nextScreen, successMsg){
+  var tgt=document.getElementById(tgtId);
+  var items=tgt.querySelectorAll('.ditem');
+  if(items.length<total){showFb(fbId,false,'Mueve todos los '+total+' pasos a tu secuencia primero.');return;}
+  var ords=Array.from(items).map(el=>+el.dataset.ord);
+  var ok=true;for(var i=1;i<ords.length;i++)if(ords[i]<ords[i-1]){ok=false;break;}
+  items.forEach(function(el,i){el.querySelector('.dnum').textContent=i+1;});
+  if(ok){
+    showFb(fbId,true,successMsg+' +'+pts+' pts');
+    addPts(pts,missionIdx);
+    spawnConfetti();
+    setTimeout(()=>goTo(nextScreen),2200);
+  }else{
+    showFb(fbId,false,'Hmm... el orden no es correcto. Revisa la lógica secuencial e inténtalo de nuevo. 💡');
+    document.getElementById(tgtId).style.animation='shake .4s ease';
+    setTimeout(()=>document.getElementById(tgtId).style.animation='',500);
+  }
+}
+
+// ─── MISSION 1: COMPUTADOR ────────────────────────────
+var dnd1Data=[
+  {id:'c1',text:'🔌 Conectar el cable de corriente al computador',ord:1},
+  {id:'c2',text:'⚡ Presionar el botón de encendido',ord:2},
+  {id:'c3',text:'⏳ Esperar a que cargue el sistema operativo',ord:3},
+  {id:'c4',text:'🔐 Escribir la contraseña de usuario',ord:4},
+  {id:'c5',text:'🖱️ Abrir el programa que necesitas usar',ord:5},
+  {id:'c6',text:'💾 Guardar tu trabajo al terminar',ord:6},
+  {id:'c7',text:'⏻ Apagar correctamente el computador',ord:7}
+];
+
+function initDnd1(){
+  var shuf=dnd1Data.slice().sort(()=>Math.random()-.5);
+  var src=document.getElementById('dnd1-src');
+  var tgt=document.getElementById('dnd1-tgt');
+  src.innerHTML='';tgt.innerHTML='';
+  document.getElementById('fb1').className='fb';
+  shuf.forEach(function(it){src.appendChild(makeDItem(it));});
+  setupDropZone('dnd1-src');
+  setupDropZone('dnd1-tgt');
+}
+
+function checkDnd1(){
+  checkOrder('dnd1-tgt',7,'fb1',100,0,3,'¡Perfecto! Algoritmo del computador completado. NICO-BOT ya sabe usar un computador.');
+}
+
+// ─── MISSION 2: JUGO ──────────────────────────────────
+var dnd2Data=[
+  {id:'j1',text:'🛒 Conseguir las naranjas frescas',ord:1},
+  {id:'j2',text:'🚿 Lavar bien las naranjas con agua',ord:2},
+  {id:'j3',text:'🔪 Cortar las naranjas por la mitad',ord:3},
+  {id:'j4',text:'🍊 Exprimir el jugo en el exprimidor',ord:4},
+  {id:'j5',text:'🧹 Retirar las semillas del jugo',ord:5},
+  {id:'j6',text:'🧂 Agregar azúcar al gusto',ord:6},
+  {id:'j7',text:'🥛 Servir el jugo en un vaso con hielo',ord:7}
+];
+
+function initDnd2(){
+  var shuf=dnd2Data.slice().sort(()=>Math.random()-.5);
+  var src=document.getElementById('dnd2-src');
+  var tgt=document.getElementById('dnd2-tgt');
+  src.innerHTML='';tgt.innerHTML='';
+  document.getElementById('fb2').className='fb';
+  shuf.forEach(function(it){src.appendChild(makeDItem(it));});
+  setupDropZone('dnd2-src');
+  setupDropZone('dnd2-tgt');
+}
+
+function checkDnd2(){
+  checkOrder('dnd2-tgt',7,'fb2',100,1,4,'¡Excelente! Algoritmo del jugo completado. NICO-BOT ya puede preparar un jugo natural.');
+}
+
+// ─── MISSION 3: CORREO ────────────────────────────────
+var dnd3Data=[
+  {id:'e1',text:'🌐 Abrir el navegador de internet',ord:1},
+  {id:'e2',text:'📬 Ingresar a la plataforma de correo',ord:2},
+  {id:'e3',text:'🔑 Escribir usuario y contraseña',ord:3},
+  {id:'e4',text:'✏️ Hacer clic en "Redactar nuevo correo"',ord:4},
+  {id:'e5',text:'📮 Escribir el correo del destinatario',ord:5},
+  {id:'e6',text:'📝 Escribir el asunto y el mensaje',ord:6},
+  {id:'e7',text:'📎 Adjuntar el archivo de la tarea',ord:7},
+  {id:'e8',text:'🚀 Hacer clic en "Enviar"',ord:8}
+];
+
+function initDnd3(){
+  var shuf=dnd3Data.slice().sort(()=>Math.random()-.5);
+  var src=document.getElementById('dnd3-src');
+  var tgt=document.getElementById('dnd3-tgt');
+  src.innerHTML='';tgt.innerHTML='';
+  document.getElementById('fb3').className='fb';
+  shuf.forEach(function(it){src.appendChild(makeDItem(it));});
+  setupDropZone('dnd3-src');
+  setupDropZone('dnd3-tgt');
+}
+
+function checkDnd3(){
+  checkOrder('dnd3-tgt',8,'fb3',100,2,5,'¡Increíble! Algoritmo del correo completado. NICO-BOT ya puede comunicarse digitalmente.');
+}
+
+// ─── FINAL SCREEN ─────────────────────────────────────
+function showFinal(){
+  var t=G.pts;
+  document.getElementById('fscore').textContent=t;
+  var msg,troph,bname;
+  if(t>=240){msg='¡EXTRAORDINARIO! Dominaste los 3 algoritmos básicos. NICO-BOT aprendió todo gracias a ti. ¡El futuro del código te espera! 🚀';troph='🏆';bname='Maestro del Algoritmo';}
+  else if(t>=140){msg='¡Muy bien hecho! Completaste la mayoría de misiones. NICO-BOT está orgulloso de ti. ¡Sigue practicando!';troph='🥈';bname='Pensador Lógico';}
+  else{msg='¡Buen inicio! Todo gran programador empieza desde cero. Inténtalo de nuevo y mejora tu secuencia.';troph='🎖️';bname='Aprendiz de Código';}
+  document.getElementById('troph').textContent=troph;
+  document.getElementById('ftitle').textContent=t>=140?'¡MISIÓN COMPLETADA!':'¡BUEN INTENTO!';
+  document.getElementById('fmsg').textContent=msg;
+
+  var bl=document.getElementById('fbadges');bl.innerHTML='';
+  var earned=[];
+  if(G.mpts[0]>0)earned.push({e:'🖥️',n:'Experto PC'});
+  if(G.mpts[1]>0)earned.push({e:'🧃',n:'Chef Lógico'});
+  if(G.mpts[2]>0)earned.push({e:'📧',n:'Coder Digital'});
+  earned.push({e:troph,n:bname});
+  earned.forEach(function(b){
+    var d=document.createElement('div');
+    d.style.cssText='text-align:center;background:rgba(255,215,0,.07);border:1px solid rgba(255,215,0,.25);border-radius:11px;padding:10px 12px;min-width:80px';
+    d.innerHTML='<div style="font-size:26px">'+b.e+'</div><div style="font-size:10px;color:var(--amber);font-weight:800;margin-top:4px">'+b.n+'</div>';
+    bl.appendChild(d);
+  });
+
+  var sl=document.getElementById('sumlist');sl.innerHTML='';
+  var labs=['Algoritmo del Computador','Algoritmo del Jugo','Algoritmo del Correo'];
+  var maxp=[100,100,100];
+  for(var i=0;i<3;i++){
+    var p=G.mpts[i];
+    var d=document.createElement('div');
+    d.style.cssText='display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:12px';
+    d.innerHTML='<span style="color:var(--muted)">Misión '+(i+1)+': '+labs[i]+'</span>'+
+      '<span style="color:'+(p>0?'var(--green)':'var(--red)')+';font-weight:800">'+(p>0?'+'+p+' ✓':'0 ✗')+'</span>';
+    sl.appendChild(d);
+  }
+  spawnConfetti();sfxWin();
+}
+
+function submitScore(){
+  var msg='✅ Puntaje enviado: '+G.pts+'/300 pts · '+G.ms+'/3 misiones completadas.\nMódulo 1 — Algoritmos Básicos: Secuencias sin condicionales ni bucles.\nCreado por Nicolás Pinilla';
+  alert(msg);
+}
+</script>
+</body>
+</html>
